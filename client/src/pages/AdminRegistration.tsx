@@ -1,41 +1,47 @@
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
-import { UserPlus, Shield } from 'lucide-react';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
-import api from '@/api/api';
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { UserPlus, Shield } from "lucide-react";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
+import api from "@/api/api";
 
 const AdminRegistration = () => {
   const { toast } = useToast();
-  const [selectedRole, setSelectedRole] = useState('');
+  const [selectedRole, setSelectedRole] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    areaOfResidence: '',
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    areaOfResidence: "",
   });
 
   const roles = [
-    { value: 'Admin', label: '☑️ Admin' },
-    { value: 'Advisory Committee', label: 'Advisory Committee' },
-    { value: 'General Coordinator', label: 'General Coordinator' },
-    { value: 'Area Coordinator', label: '☑️ Area Coordinator' },
-    { value: 'Secretary', label: '☑️ Secretary' },
-    { value: 'Customer Service', label: 'Customer Service Personnel' },
-    { value: 'Organizing Secretary', label: 'Organizing Secretary' },
-    { value: 'Treasurer', label: '☑️ Treasurer' },
-    { value: 'Auditor', label: '☑️ Auditor' },
+    { value: "admin", label: "☑️ Admin" },
+    { value: "advisory_committee", label: "Advisory Committee" },
+    { value: "general_coordinator", label: "General Coordinator" },
+    { value: "area_coordinator", label: "☑️ Area Coordinator" },
+    { value: "secretary", label: "☑️ Secretary" },
+    { value: "customer_service", label: "Customer Service Personnel" },
+    { value: "organizing_secretary", label: "Organizing Secretary" },
+    { value: "treasurer", label: "☑️ Treasurer" },
+    { value: "auditor", label: "☑️ Auditor" },
   ];
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -49,7 +55,12 @@ const AdminRegistration = () => {
       return;
     }
 
-    if (!formData.firstName || !formData.lastName || !formData.email || !formData.phone) {
+    if (
+      !formData.firstName ||
+      !formData.lastName ||
+      !formData.email ||
+      !formData.phone
+    ) {
       toast({
         title: "Required Fields Missing",
         description: "Please fill in all required fields.",
@@ -62,44 +73,45 @@ const AdminRegistration = () => {
 
     try {
       // Send request to your Node/Express server
-      const response = await api.post('/staff/staff-registrations', {
+      const response = await api.post("/staff/register", {
         first_name: formData.firstName,
         last_name: formData.lastName,
-        email: formData.email,
+        email: formData.email.trim().toLowerCase(),
         phone: formData.phone,
         staff_role: selectedRole,
         assigned_area: formData.areaOfResidence,
-        pending: 'pending',
+        pending: "pending",
       });
 
       // Check if request was successful
       if (response.status === 200 || response.status === 201) {
         toast({
           title: "Admin Registration Submitted!",
-          description: "Your registration has been submitted for approval. You will be contacted within 24 hours.",
+          description:
+            "Your registration has been submitted for approval. You will be contacted within 24 hours.",
         });
 
         // Reset form
         setFormData({
-          firstName: '',
-          lastName: '',
-          email: '',
-          phone: '',
-          areaOfResidence: '',
+          firstName: "",
+          lastName: "",
+          email: "",
+          phone: "",
+          areaOfResidence: "",
         });
-        setSelectedRole('');
+        setSelectedRole("");
       } else {
-        throw new Error('Unexpected response status');
+        throw new Error("Unexpected response status");
       }
+    } catch (error) {
+      console.error("Error submitting staff registration:", error);
 
-    } catch (error: any) {
-      console.error('Error submitting staff registration:', error);
-      
       // Handle different error scenarios
-      const errorMessage = error.response?.data?.error || 
-                          error.message || 
-                          "Failed to submit registration. Please try again.";
-      
+      const errorMessage =
+        error.response?.data?.error ||
+        error.message ||
+        "Failed to submit registration. Please try again.";
+
       toast({
         title: "Registration Failed",
         description: errorMessage,
@@ -113,7 +125,7 @@ const AdminRegistration = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      
+
       <section className="py-20 bg-background">
         <div className="container mx-auto px-4">
           <div className="max-w-2xl mx-auto">
@@ -122,7 +134,8 @@ const AdminRegistration = () => {
                 Admin Registration
               </h1>
               <p className="text-xl text-muted-foreground">
-                Register for committee and administrative roles in Team No Struggle
+                Register for committee and administrative roles in Team No
+                Struggle
               </p>
             </div>
 
@@ -144,10 +157,16 @@ const AdminRegistration = () => {
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="space-y-2">
-                    <Label htmlFor="role" className="text-foreground font-medium">
+                    <Label
+                      htmlFor="role"
+                      className="text-foreground font-medium"
+                    >
                       Select Role *
                     </Label>
-                    <Select onValueChange={setSelectedRole} value={selectedRole}>
+                    <Select
+                      onValueChange={setSelectedRole}
+                      value={selectedRole}
+                    >
                       <SelectTrigger className="border-border/50 focus:border-primary">
                         <SelectValue placeholder="Choose your administrative role" />
                       </SelectTrigger>
@@ -162,13 +181,18 @@ const AdminRegistration = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="firstName" className="text-foreground font-medium">
+                    <Label
+                      htmlFor="firstName"
+                      className="text-foreground font-medium"
+                    >
                       First Name *
                     </Label>
                     <Input
                       id="firstName"
                       value={formData.firstName}
-                      onChange={(e) => handleInputChange('firstName', e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange("firstName", e.target.value)
+                      }
                       placeholder="Enter your first name"
                       required
                       className="border-border/50 focus:border-primary"
@@ -176,13 +200,18 @@ const AdminRegistration = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="lastName" className="text-foreground font-medium">
+                    <Label
+                      htmlFor="lastName"
+                      className="text-foreground font-medium"
+                    >
                       Last Name *
                     </Label>
                     <Input
                       id="lastName"
                       value={formData.lastName}
-                      onChange={(e) => handleInputChange('lastName', e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange("lastName", e.target.value)
+                      }
                       placeholder="Enter your last name"
                       required
                       className="border-border/50 focus:border-primary"
@@ -190,14 +219,19 @@ const AdminRegistration = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="email" className="text-foreground font-medium">
+                    <Label
+                      htmlFor="email"
+                      className="text-foreground font-medium"
+                    >
                       Email *
                     </Label>
                     <Input
                       id="email"
                       type="email"
                       value={formData.email}
-                      onChange={(e) => handleInputChange('email', e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange("email", e.target.value)
+                      }
                       placeholder="Enter your email address"
                       required
                       className="border-border/50 focus:border-primary"
@@ -205,13 +239,18 @@ const AdminRegistration = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="phone" className="text-foreground font-medium">
+                    <Label
+                      htmlFor="phone"
+                      className="text-foreground font-medium"
+                    >
                       Phone Number *
                     </Label>
                     <Input
                       id="phone"
                       value={formData.phone}
-                      onChange={(e) => handleInputChange('phone', e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange("phone", e.target.value)
+                      }
                       placeholder="Enter your phone number"
                       required
                       className="border-border/50 focus:border-primary"
@@ -219,13 +258,18 @@ const AdminRegistration = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="areaOfResidence" className="text-foreground font-medium">
+                    <Label
+                      htmlFor="areaOfResidence"
+                      className="text-foreground font-medium"
+                    >
                       Area of Residence/Assignment
                     </Label>
                     <Input
                       id="areaOfResidence"
                       value={formData.areaOfResidence}
-                      onChange={(e) => handleInputChange('areaOfResidence', e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange("areaOfResidence", e.target.value)
+                      }
                       placeholder="Enter your area of residence or assignment"
                       className="border-border/50 focus:border-primary"
                     />

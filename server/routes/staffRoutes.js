@@ -16,10 +16,10 @@ router.post("/register", async (req, res) => {
     } = req.body;
 
     // Validate required fields
-    if (!first_name || !last_name || !email || !phone || !staff_role) {
+    if (!first_name || !last_name || !email || !staff_role) {
       return res.status(400).json({
         error:
-          "Missing required fields. Please provide first name, last name, email, phone, and your role.",
+          "Missing required fields. Please provide first name, last name, email",
       });
     }
 
@@ -33,38 +33,37 @@ router.post("/register", async (req, res) => {
         error: "A staff member with this email already exists.",
       });
     }
-    // Check if phone number already exists with this email
-    const existingPhone = await prisma.staff.findUnique({
-      where: { phoneNumber: phone },
-    });
-
-    if (existingPhone) {
-      return res.status(409).json({
-        error: "A staff member with this Phone number already exists.",
+    if (phone) {
+      // Check if phone number already exists with this email
+      const existingPhone = await prisma.staff.findUnique({
+        where: { phoneNumber: phone },
       });
+
+      if (existingPhone) {
+        return res.status(409).json({
+          error: "A staff member with this Phone number already exists.",
+        });
+      }
     }
 
     // Create new staff registration
     const newStaff = await prisma.staff.create({
       data: {
         firstName: first_name,
-        // last_name: last_name,
-        surname: last_name,
+        lastName: last_name,
+        surname: null,
         email,
         phoneNumber: phone,
-        staffRole: staff_role,
+        role: staff_role,
         assignedArea: assigned_area || null,
-        pending: pending || "pending",
-        // Add other fields with defaults
+        approval: pending || "pending",
         title: null,
         otherNames: null,
         gender: null,
         dateOfBirth: null,
         address: null,
         employmentDate: new Date(),
-        staffId: `STAFF-${Date.now()}`,
         department: null,
-        supervisorId: null,
         qualifications: null,
         isActive: true,
       },

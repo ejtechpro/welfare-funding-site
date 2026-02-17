@@ -1,6 +1,37 @@
 -- CreateTable
-CREATE TABLE `membership_registrations` (
-    `id` CHAR(36) NOT NULL,
+CREATE TABLE `staffs` (
+    `id` VARCHAR(191) NOT NULL,
+    `surname` VARCHAR(191) NULL,
+    `firstName` VARCHAR(191) NOT NULL,
+    `last_name` VARCHAR(191) NOT NULL,
+    `otherNames` VARCHAR(191) NULL,
+    `email` VARCHAR(191) NOT NULL,
+    `gender` VARCHAR(191) NULL,
+    `dateOfBirth` DATETIME(3) NULL,
+    `phoneNumber` VARCHAR(191) NOT NULL,
+    `password` VARCHAR(191) NULL,
+    `title` VARCHAR(191) NULL,
+    `address` JSON NULL,
+    `employmentDate` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `department` VARCHAR(191) NULL,
+    `supervisorId` VARCHAR(191) NULL,
+    `role` ENUM('admin', 'secretary', 'coordinator', 'auditor') NOT NULL,
+    `assignedArea` VARCHAR(191) NULL,
+    `approval` ENUM('pending', 'rejected', 'approved') NOT NULL DEFAULT 'pending',
+    `qualifications` JSON NULL,
+    `isActive` BOOLEAN NOT NULL DEFAULT true,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    UNIQUE INDEX `staffs_email_key`(`email`),
+    UNIQUE INDEX `staffs_phoneNumber_key`(`phoneNumber`),
+    INDEX `staffs_email_idx`(`email`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `members` (
+    `id` VARCHAR(191) NOT NULL,
     `title` VARCHAR(10) NULL,
     `surname` VARCHAR(100) NOT NULL,
     `first_name` VARCHAR(100) NOT NULL,
@@ -43,49 +74,13 @@ CREATE TABLE `membership_registrations` (
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updated_at` DATETIME(3) NOT NULL,
 
-    UNIQUE INDEX `membership_registrations_tns_number_key`(`tns_number`),
-    INDEX `membership_registrations_email_idx`(`email`),
-    INDEX `membership_registrations_phone_number_idx`(`phone_number`),
-    INDEX `membership_registrations_tns_number_idx`(`tns_number`),
-    INDEX `membership_registrations_status_idx`(`status`),
-    INDEX `membership_registrations_city_state_idx`(`city`, `state`),
-    INDEX `membership_registrations_maturity_status_idx`(`maturity_status`),
-    PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- CreateTable
-CREATE TABLE `staff_registrations` (
-    `id` CHAR(36) NOT NULL,
-    `user_id` CHAR(36) NOT NULL,
-    `staff_role` VARCHAR(100) NOT NULL,
-    `assigned_area` VARCHAR(200) NULL,
-    `pending` VARCHAR(20) NOT NULL DEFAULT 'pending',
-    `title` VARCHAR(10) NULL,
-    `surname` VARCHAR(100) NOT NULL,
-    `first_name` VARCHAR(100) NOT NULL,
-    `other_names` VARCHAR(100) NULL,
-    `gender` VARCHAR(10) NULL,
-    `date_of_birth` DATETIME(0) NULL,
-    `phone_number` VARCHAR(20) NOT NULL,
-    `email` VARCHAR(255) NOT NULL,
-    `address` TEXT NULL,
-    `employment_date` DATETIME(0) NOT NULL DEFAULT CURRENT_TIMESTAMP(0),
-    `staff_id` VARCHAR(50) NULL,
-    `department` VARCHAR(100) NULL,
-    `supervisor_id` CHAR(36) NULL,
-    `qualifications` JSON NULL,
-    `is_active` BOOLEAN NOT NULL DEFAULT true,
-    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `updated_at` DATETIME(3) NOT NULL,
-
-    UNIQUE INDEX `staff_registrations_email_key`(`email`),
-    UNIQUE INDEX `staff_registrations_staff_id_key`(`staff_id`),
-    INDEX `staff_registrations_email_idx`(`email`),
-    INDEX `staff_registrations_staff_role_idx`(`staff_role`),
-    INDEX `staff_registrations_assigned_area_idx`(`assigned_area`),
-    INDEX `staff_registrations_pending_idx`(`pending`),
-    INDEX `staff_registrations_user_id_idx`(`user_id`),
-    INDEX `staff_registrations_supervisor_id_fkey`(`supervisor_id`),
+    UNIQUE INDEX `members_tns_number_key`(`tns_number`),
+    INDEX `members_email_idx`(`email`),
+    INDEX `members_phone_number_idx`(`phone_number`),
+    INDEX `members_tns_number_idx`(`tns_number`),
+    INDEX `members_status_idx`(`status`),
+    INDEX `members_city_state_idx`(`city`, `state`),
+    INDEX `members_maturity_status_idx`(`maturity_status`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -104,7 +99,6 @@ CREATE TABLE `member_approvals` (
 
     INDEX `member_approvals_member_id_idx`(`member_id`),
     INDEX `member_approvals_status_idx`(`status`),
-    INDEX `member_approvals_approver_id_fkey`(`approver_id`),
     UNIQUE INDEX `member_approvals_member_id_approval_level_key`(`member_id`, `approval_level`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -184,34 +178,31 @@ CREATE TABLE `registration_audit_log` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- AddForeignKey
-ALTER TABLE `staff_registrations` ADD CONSTRAINT `staff_registrations_supervisor_id_fkey` FOREIGN KEY (`supervisor_id`) REFERENCES `staff_registrations`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE `member_approvals` ADD CONSTRAINT `member_approvals_approver_id_fkey` FOREIGN KEY (`approver_id`) REFERENCES `staffs`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `member_approvals` ADD CONSTRAINT `member_approvals_approver_id_fkey` FOREIGN KEY (`approver_id`) REFERENCES `staff_registrations`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE `member_approvals` ADD CONSTRAINT `member_approvals_member_id_fkey` FOREIGN KEY (`member_id`) REFERENCES `members`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `member_approvals` ADD CONSTRAINT `member_approvals_member_id_fkey` FOREIGN KEY (`member_id`) REFERENCES `membership_registrations`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE `registration_documents` ADD CONSTRAINT `registration_documents_member_id_fkey` FOREIGN KEY (`member_id`) REFERENCES `members`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `registration_documents` ADD CONSTRAINT `registration_documents_member_id_fkey` FOREIGN KEY (`member_id`) REFERENCES `membership_registrations`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE `registration_documents` ADD CONSTRAINT `registration_documents_verified_by_fkey` FOREIGN KEY (`verified_by`) REFERENCES `staffs`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `registration_documents` ADD CONSTRAINT `registration_documents_verified_by_fkey` FOREIGN KEY (`verified_by`) REFERENCES `staff_registrations`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE `member_notes` ADD CONSTRAINT `member_notes_created_by_fkey` FOREIGN KEY (`created_by`) REFERENCES `staffs`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `member_notes` ADD CONSTRAINT `member_notes_created_by_fkey` FOREIGN KEY (`created_by`) REFERENCES `staff_registrations`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE `member_notes` ADD CONSTRAINT `member_notes_member_id_fkey` FOREIGN KEY (`member_id`) REFERENCES `members`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `member_notes` ADD CONSTRAINT `member_notes_member_id_fkey` FOREIGN KEY (`member_id`) REFERENCES `membership_registrations`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE `member_status_history` ADD CONSTRAINT `member_status_history_changed_by_fkey` FOREIGN KEY (`changed_by`) REFERENCES `staffs`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `member_status_history` ADD CONSTRAINT `member_status_history_changed_by_fkey` FOREIGN KEY (`changed_by`) REFERENCES `staff_registrations`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE `member_status_history` ADD CONSTRAINT `member_status_history_member_id_fkey` FOREIGN KEY (`member_id`) REFERENCES `members`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `member_status_history` ADD CONSTRAINT `member_status_history_member_id_fkey` FOREIGN KEY (`member_id`) REFERENCES `membership_registrations`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE `registration_audit_log` ADD CONSTRAINT `registration_audit_log_member_id_fkey` FOREIGN KEY (`member_id`) REFERENCES `members`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `registration_audit_log` ADD CONSTRAINT `registration_audit_log_member_id_fkey` FOREIGN KEY (`member_id`) REFERENCES `membership_registrations`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE `registration_audit_log` ADD CONSTRAINT `registration_audit_log_performed_by_fkey` FOREIGN KEY (`performed_by`) REFERENCES `staff_registrations`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE `registration_audit_log` ADD CONSTRAINT `registration_audit_log_performed_by_fkey` FOREIGN KEY (`performed_by`) REFERENCES `staffs`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;

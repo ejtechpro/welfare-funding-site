@@ -37,11 +37,12 @@ const Auth = () => {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+
     setIsLoading(true);
 
     try {
-      const res = await api.post("/staff/signin", {
-        email,
+      const res = await api.post("/staff/signIn", {
+        email: email.trim().toLowerCase(),
         password,
       });
 
@@ -55,7 +56,7 @@ const Auth = () => {
         localStorage.setItem("token", res.data?.token);
         navigate("/");
       }
-    } catch (error: any) {
+    } catch (error) {
       toast.error("An unexpected error occurred");
     } finally {
       setIsLoading(false);
@@ -64,32 +65,35 @@ const Auth = () => {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (password.length < 4) {
+      toast.error("Your password is too short!");
+      return;
+    }
     setIsLoading(true);
 
     try {
-      const res = await api.post("/api/staff/signup", {
+      const res = await api.post("/staff/register", {
         email,
         password,
         first_name: firstName,
         last_name: lastName,
-        // options: {
-        //   emailRedirectTo: `${window.location.origin}/`,
-        //   data: {
-
-        // },
-        // },
+        phone: null,
+        staff_role: "staff",
       });
 
-      if (res.data.error) {
-        toast.error(res.data.error.message);
-        return;
-      }
-
-      if (res.data.user) {
+      if (res.data?.user) {
         toast.success("Please check your email to confirm your account!");
+        setEmail("");
+        setPassword("");
+        setFirstName("");
+        setLastName("");
       }
-    } catch (error: any) {
-      toast.error("An unexpected error occurred");
+    } catch (error) {
+      if (error?.response?.data?.error) {
+        toast.error(error?.response?.data.error);
+      } else {
+        toast.error("An unexpected error occurred");
+      }
     } finally {
       setIsLoading(false);
     }

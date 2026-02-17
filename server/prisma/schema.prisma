@@ -11,19 +11,19 @@ model Staff {
   id                    String                 @id @default(uuid())
   surname               String?
   firstName             String
-  last_name             String
+  lastName              String
   otherNames            String?
   email                 String                 @unique
   gender                String?
   dateOfBirth           DateTime?
-  phoneNumber           String                 @unique
+  phoneNumber           String?                 @unique
   password              String?
   title                 String?
   address               Json?
   employmentDate        DateTime               @default(now())
   department            String?
   supervisorId          String?
-  role                  StaffRole
+  role                  StaffRole              @default(staff)
   assignedArea          String?
   approval              staffApproval          @default(pending)
   qualifications        Json?
@@ -42,9 +42,15 @@ model Staff {
 
 enum StaffRole {
   admin
+  advisory_committee
+  general_coordinator
+  area_coordinator
   secretary
-  coordinator
+  customer_serviceice
+  organizing_secretary
+  treasurer
   auditor
+  staff
 }
 
 enum staffApproval {
@@ -54,7 +60,7 @@ enum staffApproval {
 }
 
 model Member {
-  id                    String                 @id @default(uuid()) @db.Char(36)
+  id                    String                 @id @default(uuid())
   title                 String?                @db.VarChar(10)
   surname               String                 @db.VarChar(100)
   firstName             String                 @map("first_name") @db.VarChar(100)
@@ -128,7 +134,6 @@ model MemberApproval {
   @@unique([memberId, approvalLevel])
   @@index([memberId])
   @@index([status])
-  @@index([approverId], map: "member_approvals_approver_id_fkey")
   @@map("member_approvals")
 }
 
