@@ -1,0 +1,206 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model MembershipRegistration {
+  id                    String                 @id @default(uuid()) @db.Char(36)
+  title                 String?                @db.VarChar(10)
+  surname               String                 @db.VarChar(100)
+  firstName             String                 @map("first_name") @db.VarChar(100)
+  otherNames            String?                @map("other_names") @db.VarChar(100)
+  gender                String?                @db.VarChar(10)
+  dateOfBirth           DateTime?              @map("date_of_birth") @db.DateTime(0)
+  maritalStatus         String?                @map("marital_status") @db.VarChar(20)
+  phoneNumber           String                 @map("phone_number") @db.VarChar(20)
+  alternativePhone      String?                @map("alternative_phone") @db.VarChar(20)
+  email                 String?                @db.VarChar(255)
+  alternativeEmail      String?                @map("alternative_email") @db.VarChar(255)
+  city                  String                 @db.VarChar(100)
+  state                 String                 @db.VarChar(100)
+  country               String                 @default("Nigeria") @db.VarChar(100)
+  residentialAddress    String?                @map("residential_address") @db.Text
+  officeAddress         String?                @map("office_address") @db.Text
+  idType                String?                @map("id_type") @db.VarChar(50)
+  idNumber              String?                @map("id_number") @db.VarChar(100)
+  idIssueDate           DateTime?              @map("id_issue_date") @db.DateTime(0)
+  idExpiryDate          DateTime?              @map("id_expiry_date") @db.DateTime(0)
+  occupation            String?                @db.VarChar(100)
+  employer              String?                @db.VarChar(255)
+  workPosition          String?                @map("work_position") @db.VarChar(100)
+  nextOfKinName         String?                @map("next_of_kin_name") @db.VarChar(200)
+  nextOfKinRelationship String?                @map("next_of_kin_relationship") @db.VarChar(50)
+  nextOfKinPhone        String?                @map("next_of_kin_phone") @db.VarChar(20)
+  nextOfKinAddress      String?                @map("next_of_kin_address") @db.Text
+  membershipType        String                 @default("regular") @map("membership_type") @db.VarChar(50)
+  registrationDate      DateTime               @default(now()) @map("registration_date") @db.DateTime(0)
+  probationEndDate      DateTime?              @map("probation_end_date") @db.DateTime(0)
+  maturityStatus        String                 @default("probation") @map("maturity_status") @db.VarChar(20)
+  daysToMaturity        Int?                   @map("days_to_maturity")
+  tnsNumber             String?                @unique @map("tns_number") @db.VarChar(50)
+  status                String                 @default("pending") @db.VarChar(20)
+  approvalStatus        String                 @default("pending") @map("approval_status") @db.VarChar(20)
+  rejectionReason       String?                @map("rejection_reason") @db.Text
+  registeredBy          String?                @map("registered_by") @db.Char(36)
+  approvedBy            String?                @map("approved_by") @db.Char(36)
+  approvedAt            DateTime?              @map("approved_at")
+  createdAt             DateTime               @default(now()) @map("created_at")
+  updatedAt             DateTime               @updatedAt @map("updated_at")
+  approvals             MemberApproval[]
+  notes                 MemberNote[]
+  statusHistory         MemberStatusHistory[]
+  auditLogs             RegistrationAuditLog[]
+  documents             RegistrationDocument[]
+
+  @@index([email])
+  @@index([phoneNumber])
+  @@index([tnsNumber])
+  @@index([status])
+  @@index([city, state])
+  @@index([maturityStatus])
+  @@map("membership_registrations")
+}
+
+model StaffRegistration {
+  id                    String                 @id @default(uuid()) @db.Char(36)
+  userId                String?                @map("user_id") @db.Char(36)
+  staffRole             String                 @map("staff_role") @db.VarChar(100)
+  assignedArea          String?                @map("assigned_area") @db.VarChar(200)
+  pending               String                 @default("pending") @db.VarChar(20)
+  title                 String?                @db.VarChar(10)
+  surname               String?                @db.VarChar(100)
+  firstName             String                 @map("first_name") @db.VarChar(100)
+  otherNames            String?                @map("other_names") @db.VarChar(100)
+  gender                String?                @db.VarChar(10)
+  dateOfBirth           DateTime?              @map("date_of_birth") @db.DateTime(0)
+  phoneNumber           String                 @map("phone_number") @db.VarChar(20)
+  email                 String                 @unique @db.VarChar(255)
+  password              String?
+  address               String?                @db.Text
+  employmentDate        DateTime               @default(now()) @map("employment_date") @db.DateTime(0)
+  staffId               String?                @unique @map("staff_id") @db.VarChar(50)
+  department            String?                @db.VarChar(100)
+  supervisorId          String?                @map("supervisor_id") @db.Char(36)
+  qualifications        Json?
+  isActive              Boolean                @default(true) @map("is_active")
+  createdAt             DateTime               @default(now()) @map("created_at")
+  updatedAt             DateTime               @updatedAt @map("updated_at")
+  memberApprovals       MemberApproval[]
+  memberNotes           MemberNote[]
+  memberStatusHistories MemberStatusHistory[]
+  registrationAuditLogs RegistrationAuditLog[]
+  registrationDocuments RegistrationDocument[]
+  supervisor            StaffRegistration?     @relation("StaffSupervision", fields: [supervisorId], references: [id])
+  subordinates          StaffRegistration[]    @relation("StaffSupervision")
+
+  @@index([email])
+  @@index([staffRole])
+  @@index([assignedArea])
+  @@index([pending])
+  @@index([userId])
+  @@index([supervisorId], map: "staff_registrations_supervisor_id_fkey")
+  @@map("staff_registrations")
+}
+
+model MemberApproval {
+  id            String                 @id @default(uuid()) @db.Char(36)
+  memberId      String                 @map("member_id") @db.Char(36)
+  approvalLevel Int                    @map("approval_level")
+  approverRole  String                 @map("approver_role") @db.VarChar(100)
+  approverId    String?                @map("approver_id") @db.Char(36)
+  status        String                 @default("pending") @db.VarChar(20)
+  comments      String?                @db.Text
+  approvedAt    DateTime?              @map("approved_at")
+  createdAt     DateTime               @default(now()) @map("created_at")
+  updatedAt     DateTime               @updatedAt @map("updated_at")
+  approver      StaffRegistration?     @relation(fields: [approverId], references: [id])
+  member        MembershipRegistration @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, approvalLevel])
+  @@index([memberId])
+  @@index([status])
+  @@index([approverId], map: "member_approvals_approver_id_fkey")
+  @@map("member_approvals")
+}
+
+model RegistrationDocument {
+  id           String                 @id @default(uuid()) @db.Char(36)
+  memberId     String                 @map("member_id") @db.Char(36)
+  documentType String                 @map("document_type") @db.VarChar(50)
+  documentName String                 @map("document_name") @db.VarChar(255)
+  fileUrl      String                 @map("file_url") @db.Text
+  fileSize     Int?                   @map("file_size")
+  mimeType     String?                @map("mime_type") @db.VarChar(100)
+  isVerified   Boolean                @default(false) @map("is_verified")
+  verifiedBy   String?                @map("verified_by") @db.Char(36)
+  verifiedAt   DateTime?              @map("verified_at")
+  uploadedAt   DateTime               @default(now()) @map("uploaded_at")
+  member       MembershipRegistration @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  verifier     StaffRegistration?     @relation(fields: [verifiedBy], references: [id])
+
+  @@index([memberId])
+  @@index([documentType])
+  @@index([isVerified])
+  @@index([verifiedBy], map: "registration_documents_verified_by_fkey")
+  @@map("registration_documents")
+}
+
+model MemberNote {
+  id          String                 @id @default(uuid()) @db.Char(36)
+  memberId    String                 @map("member_id") @db.Char(36)
+  noteType    String                 @default("general") @map("note_type") @db.VarChar(50)
+  noteContent String                 @map("note_content") @db.Text
+  isPrivate   Boolean                @default(true) @map("is_private")
+  createdBy   String                 @map("created_by") @db.Char(36)
+  createdAt   DateTime               @default(now()) @map("created_at")
+  updatedAt   DateTime               @updatedAt @map("updated_at")
+  creator     StaffRegistration      @relation(fields: [createdBy], references: [id])
+  member      MembershipRegistration @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([memberId])
+  @@index([noteType])
+  @@index([createdBy])
+  @@map("member_notes")
+}
+
+model MemberStatusHistory {
+  id             String                 @id @default(uuid()) @db.Char(36)
+  memberId       String                 @map("member_id") @db.Char(36)
+  previousStatus String?                @map("previous_status") @db.VarChar(50)
+  newStatus      String                 @map("new_status") @db.VarChar(50)
+  changeReason   String?                @map("change_reason") @db.Text
+  changedBy      String?                @map("changed_by") @db.Char(36)
+  changedAt      DateTime               @default(now()) @map("changed_at")
+  changer        StaffRegistration?     @relation(fields: [changedBy], references: [id])
+  member         MembershipRegistration @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([memberId])
+  @@index([newStatus])
+  @@index([changedBy], map: "member_status_history_changed_by_fkey")
+  @@map("member_status_history")
+}
+
+model RegistrationAuditLog {
+  id          String                 @id @default(uuid()) @db.Char(36)
+  memberId    String                 @map("member_id") @db.Char(36)
+  action      String                 @db.VarChar(50)
+  fieldName   String?                @map("field_name") @db.VarChar(100)
+  oldValue    String?                @map("old_value") @db.Text
+  newValue    String?                @map("new_value") @db.Text
+  performedBy String?                @map("performed_by") @db.Char(36)
+  performedAt DateTime               @default(now()) @map("performed_at")
+  ipAddress   String?                @map("ip_address") @db.VarChar(45)
+  userAgent   String?                @map("user_agent") @db.Text
+  member      MembershipRegistration @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  performer   StaffRegistration?     @relation(fields: [performedBy], references: [id])
+
+  @@index([memberId])
+  @@index([action])
+  @@index([performedAt])
+  @@index([performedBy], map: "registration_audit_log_performed_by_fkey")
+  @@map("registration_audit_log")
+}
