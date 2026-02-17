@@ -37,7 +37,7 @@ model Staff {
   registrationAuditLogs RegistrationAuditLog[]
 
   @@index([email])
-  @@map("staff")
+  @@map("staffs")
 }
 
 enum StaffRole {
