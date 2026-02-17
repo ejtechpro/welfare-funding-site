@@ -54,7 +54,7 @@ import {
 import { DocumentList } from "@/components/DocumentList";
 import { CommunicationCenter } from "@/components/CommunicationCenter";
 import { useCrossPortalSync } from "@/hooks/useCrossPortalSync";
-import { format, addDays, startOfWeek, endOfWeek, isWithinInterval } from "date-fns";
+import { format, addDays, endOfWeek, isWithinInterval } from "date-fns";
 
 interface ContactSubmission {
   id: string;

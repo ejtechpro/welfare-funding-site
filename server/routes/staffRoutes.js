@@ -3,7 +3,7 @@ const prisma = require("../conn.js");
 
 const router = express.Router();
 
-router.post("/staff-registrations", async (req, res) => {
+router.post("/register", async (req, res) => {
   try {
     const {
       first_name,
@@ -19,12 +19,12 @@ router.post("/staff-registrations", async (req, res) => {
     if (!first_name || !last_name || !email || !phone || !staff_role) {
       return res.status(400).json({
         error:
-          "Missing required fields. Please provide first_name, last_name, email, phone, and staff_role.",
+          "Missing required fields. Please provide first name, last name, email, phone, and your role.",
       });
     }
 
     // Check if staff member already exists with this email
-    const existingStaff = await prisma.staffRegistration.findUnique({
+    const existingStaff = await prisma.staff.findUnique({
       where: { email: email },
     });
 
@@ -33,9 +33,19 @@ router.post("/staff-registrations", async (req, res) => {
         error: "A staff member with this email already exists.",
       });
     }
+    // Check if phone number already exists with this email
+    const existingPhone = await prisma.staff.findUnique({
+      where: { phoneNumber: phone },
+    });
+
+    if (existingPhone) {
+      return res.status(409).json({
+        error: "A staff member with this Phone number already exists.",
+      });
+    }
 
     // Create new staff registration
-    const newStaff = await prisma.staffRegistration.create({
+    const newStaff = await prisma.staff.create({
       data: {
         firstName: first_name,
         // last_name: last_name,
