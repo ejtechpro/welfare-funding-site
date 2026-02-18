@@ -12,16 +12,16 @@ import {
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import { Loader2, ArrowLeft } from "lucide-react";
 import api from "@/api/api";
+import { useMutation } from "@tanstack/react-query";
+import { registerUser } from "@/api/user";
 
 const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -35,14 +35,41 @@ const Auth = () => {
     // checkUser();
   }, [navigate]);
 
+  const signUpMutation = useMutation({
+    mutationFn: async () => {
+      return registerUser({
+        email: email.trim().toLowerCase(),
+        password,
+        firstName: firstName,
+        lastName: lastName,
+        phoneNumber: null,
+        role: "staff",
+      });
+    },
+    onSuccess: (data) => {
+      if (data?.success) {
+        toast.success("Please check your email to confirm your account!");
+        setEmail("");
+        setPassword("");
+        setFirstName("");
+        setLastName("");
+      }
+    },
+    onError: (error: any) => {
+      if (error?.response?.data?.error) {
+        toast.error(error.response.data.error);
+      } else {
+        toast.error("An unexpected error occurred");
+      }
+    },
+  });
+
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    setIsLoading(true);
-
     try {
-      const res = await api.post("/staff/signIn", {
-        email: email.trim().toLowerCase(),
+      const res = await api.post("/staff/login", {
+        email: email,
         password,
       });
 
@@ -58,45 +85,18 @@ const Auth = () => {
       }
     } catch (error) {
       toast.error("An unexpected error occurred");
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  const handleSignUp = async (e: React.FormEvent) => {
+  const handleSignUp = (e: React.FormEvent) => {
     e.preventDefault();
+
     if (password.length < 4) {
       toast.error("Your password is too short!");
       return;
     }
-    setIsLoading(true);
 
-    try {
-      const res = await api.post("/staff/register", {
-        email,
-        password,
-        first_name: firstName,
-        last_name: lastName,
-        phone: null,
-        staff_role: "staff",
-      });
-
-      if (res.data?.user) {
-        toast.success("Please check your email to confirm your account!");
-        setEmail("");
-        setPassword("");
-        setFirstName("");
-        setLastName("");
-      }
-    } catch (error) {
-      if (error?.response?.data?.error) {
-        toast.error(error?.response?.data.error);
-      } else {
-        toast.error("An unexpected error occurred");
-      }
-    } finally {
-      setIsLoading(false);
-    }
+    signUpMutation.mutate();
   };
 
   return (
@@ -148,8 +148,12 @@ const Auth = () => {
                     required
                   />
                 </div>
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading && (
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={signUpMutation.isPending}
+                >
+                  {signUpMutation.isPending && (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   )}
                   Sign In
@@ -203,8 +207,12 @@ const Auth = () => {
                     required
                   />
                 </div>
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading && (
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={signUpMutation.isPending}
+                >
+                  {signUpMutation.isPending && (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   )}
                   Create Account

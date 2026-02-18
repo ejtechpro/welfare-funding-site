@@ -1,12 +1,14 @@
 const express = require("express");
 const http = require("http");
-const prisma = require("./conn.js");
+const prisma = require("./config/conn.js");
 const cors = require("cors");
-
+const cookieParser = require("cookie-parser");
+const path = require("path");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware example (optional)
+app.use(cookieParser());
 app.use(express.json());
 app.use(
   cors({
@@ -19,6 +21,8 @@ app.use(
     credentials: true,
   }),
 );
+app.use(express.urlencoded({ extended: false }));
+app.use("/public", express.static(path.join(__dirname, "public")));
 
 const server = http.createServer(app);
 
@@ -37,7 +41,8 @@ app.get("/api", async (req, res) => {
   }
 });
 
-app.use("/api/staff", require("./routes/staffRoutes.js"));
+app.use("/api/auth", require("./routes/authRoutes.js"));
+// app.use("/api/users", require("./routes/userRoutes.js"));
 
 // Start the server
 server.listen(PORT, () => {

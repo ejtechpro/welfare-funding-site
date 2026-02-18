@@ -14,12 +14,13 @@ import { useToast } from "@/hooks/use-toast";
 import { UserPlus, Shield } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import api from "@/api/api";
+import { useMutation } from "@tanstack/react-query";
+import { registerUser } from "@/api/user";
+import { UserRole } from "@/types";
 
 const AdminRegistration = () => {
   const { toast } = useToast();
   const [selectedRole, setSelectedRole] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -29,20 +30,70 @@ const AdminRegistration = () => {
   });
 
   const roles = [
-    { value: "admin", label: "☑️ Admin" },
-    { value: "advisory_committee", label: "Advisory Committee" },
-    { value: "general_coordinator", label: "General Coordinator" },
-    { value: "area_coordinator", label: "☑️ Area Coordinator" },
-    { value: "secretary", label: "☑️ Secretary" },
-    { value: "customer_service", label: "Customer Service Personnel" },
-    { value: "organizing_secretary", label: "Organizing Secretary" },
-    { value: "treasurer", label: "☑️ Treasurer" },
-    { value: "auditor", label: "☑️ Auditor" },
+    { value: UserRole.admin, label: "☑️ Admin" },
+    { value: UserRole.advisory_committee, label: "Advisory Committee" },
+    { value: UserRole.general_coordinator, label: "General Coordinator" },
+    { value: UserRole.area_coordinator, label: "☑️ Area Coordinator" },
+    { value: UserRole.secretary, label: "☑️ Secretary" },
+    {
+      value: UserRole.customer_service_personnel,
+      label: "Customer Service Personnel",
+    },
+    { value: UserRole.organizing_secretary, label: "Organizing Secretary" },
+    { value: UserRole.treasurer, label: "☑️ Treasurer" },
+    { value: UserRole.auditor, label: "☑️ Auditor" },
   ];
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
+
+  const mutation = useMutation({
+    mutationFn: async () =>
+      registerUser({
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email.trim().toLowerCase(),
+        phoneNumber: formData.phone,
+        role: "member",
+        requestedRole: selectedRole,
+        assignedArea: formData.areaOfResidence,
+      }),
+    onSuccess: (data) => {
+      if (data?.success) {
+        toast({
+          title: "Admin Registration Submitted!",
+          description:
+            "Your registration has been submitted for approval. You will be contacted within 24 hours.",
+        });
+
+        // Reset form
+        setFormData({
+          firstName: "",
+          lastName: "",
+          email: "",
+          phone: "",
+          areaOfResidence: "",
+        });
+        setSelectedRole("");
+      }
+    },
+    onError: (error: any) => {
+      if (error?.response?.data?.error) {
+        toast({
+          title: "Registration Failed",
+          description: error?.response?.data?.error,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Registration Failed",
+          description: "An unexpected error occurred",
+          variant: "destructive",
+        });
+      }
+    },
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,57 +120,7 @@ const AdminRegistration = () => {
       return;
     }
 
-    setIsSubmitting(true);
-
-    try {
-      // Send request to your Node/Express server
-      const response = await api.post("/staff/register", {
-        first_name: formData.firstName,
-        last_name: formData.lastName,
-        email: formData.email.trim().toLowerCase(),
-        phone: formData.phone,
-        staff_role: selectedRole,
-        assigned_area: formData.areaOfResidence,
-        pending: "pending",
-      });
-
-      // Check if request was successful
-      if (response.status === 200 || response.status === 201) {
-        toast({
-          title: "Admin Registration Submitted!",
-          description:
-            "Your registration has been submitted for approval. You will be contacted within 24 hours.",
-        });
-
-        // Reset form
-        setFormData({
-          firstName: "",
-          lastName: "",
-          email: "",
-          phone: "",
-          areaOfResidence: "",
-        });
-        setSelectedRole("");
-      } else {
-        throw new Error("Unexpected response status");
-      }
-    } catch (error) {
-      console.error("Error submitting staff registration:", error);
-
-      // Handle different error scenarios
-      const errorMessage =
-        error.response?.data?.error ||
-        error.message ||
-        "Failed to submit registration. Please try again.";
-
-      toast({
-        title: "Registration Failed",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+    mutation.mutate();
   };
 
   return (
@@ -279,9 +280,9 @@ const AdminRegistration = () => {
                     <Button
                       type="submit"
                       className="w-full py-6 text-lg bg-gradient-primary hover:opacity-90 transition-opacity"
-                      disabled={isSubmitting}
+                      disabled={mutation.isPending}
                     >
-                      {isSubmitting ? (
+                      {mutation.isPending ? (
                         <>
                           <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
                           Submitting Registration...

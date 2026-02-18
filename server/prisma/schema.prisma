@@ -7,8 +7,8 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Staff {
-  id                    String                 @id @default(uuid())
+model User {
+  id                    String                 @id @default(ulid())
   surname               String?
   firstName             String
   lastName              String
@@ -16,18 +16,21 @@ model Staff {
   email                 String                 @unique
   gender                String?
   dateOfBirth           DateTime?
-  phoneNumber           String?                 @unique
+  phoneNumber           String?                @unique
   password              String?
   title                 String?
   address               Json?
   employmentDate        DateTime               @default(now())
   department            String?
   supervisorId          String?
-  role                  StaffRole              @default(staff)
+  role                  UserRole               @default(member)
+  requestedRole         UserRole?
   assignedArea          String?
-  approval              staffApproval          @default(pending)
+  approval              UserApproval           @default(pending)
   qualifications        Json?
-  isActive              Boolean                @default(true)
+  status                UserStatus             @default(active)
+  verificationCode      String?
+  isVerified            Boolean                @default(false)
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
   memberApprovals       MemberApproval[]
@@ -35,28 +38,26 @@ model Staff {
   registrationDocuments RegistrationDocument[]
   memberStatusHistories MemberStatusHistory[]
   registrationAuditLogs RegistrationAuditLog[]
+  sessions              Session[]
 
   @@index([email])
-  @@map("staffs")
+  @@map("users")
 }
 
-enum StaffRole {
-  admin
-  advisory_committee
-  general_coordinator
-  area_coordinator
-  secretary
-  customer_serviceice
-  organizing_secretary
-  treasurer
-  auditor
-  staff
-}
+model Session {
+  id           String   @id @default(ulid())
+  sessionId    String   @unique
+  User         User     @relation(fields: [UserId], references: [id], onDelete: Cascade)
+  UserId       String
+  deviceId     String?
+  deviceInfo   String?
+  ipAddress    String?
+  location     String?
+  compositeKey String   @unique
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-enum staffApproval {
-  pending
-  rejected
-  approved
+  @@map("user_session")
 }
 
 model Member {
@@ -128,7 +129,7 @@ model MemberApproval {
   approvedAt    DateTime? @map("approved_at")
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
-  approver      Staff?    @relation(fields: [approverId], references: [id])
+  approver      User?     @relation(fields: [approverId], references: [id])
   member        Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
 
   @@unique([memberId, approvalLevel])
@@ -150,7 +151,7 @@ model RegistrationDocument {
   verifiedAt   DateTime? @map("verified_at")
   uploadedAt   DateTime  @default(now()) @map("uploaded_at")
   member       Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  verifier     Staff?    @relation(fields: [verifiedBy], references: [id])
+  verifier     User?     @relation(fields: [verifiedBy], references: [id])
 
   @@index([memberId])
   @@index([documentType])
@@ -168,7 +169,7 @@ model MemberNote {
   createdBy   String   @map("created_by") @db.Char(36)
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
-  creator     Staff    @relation(fields: [createdBy], references: [id])
+  creator     User     @relation(fields: [createdBy], references: [id])
   member      Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
 
   @@index([memberId])
@@ -185,7 +186,7 @@ model MemberStatusHistory {
   changeReason   String?  @map("change_reason") @db.Text
   changedBy      String?  @map("changed_by") @db.Char(36)
   changedAt      DateTime @default(now()) @map("changed_at")
-  changer        Staff?   @relation(fields: [changedBy], references: [id])
+  changer        User?    @relation(fields: [changedBy], references: [id])
   member         Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
 
   @@index([memberId])
@@ -206,11 +207,38 @@ model RegistrationAuditLog {
   ipAddress   String?  @map("ip_address") @db.VarChar(45)
   userAgent   String?  @map("user_agent") @db.Text
   member      Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  performer   Staff?   @relation(fields: [performedBy], references: [id])
+  performer   User?    @relation(fields: [performedBy], references: [id])
 
   @@index([memberId])
   @@index([action])
   @@index([performedAt])
   @@index([performedBy], map: "registration_audit_log_performed_by_fkey")
   @@map("registration_audit_log")
+}
+
+enum UserRole {
+  admin
+  advisory_committee
+  general_coordinator
+  area_coordinator
+  secretary
+  customer_service_personnel
+  organizing_secretary
+  treasurer
+  auditor
+  staff
+  member
+}
+
+enum UserApproval {
+  pending
+  rejected
+  approved
+}
+
+enum UserStatus {
+  active
+  inactive
+  suspended
+  banned
 }

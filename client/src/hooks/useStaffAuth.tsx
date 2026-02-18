@@ -4,10 +4,10 @@ import { supabase } from '@/integrations/supabase/client';
 interface StaffUser {
   id: string;
   email: string;
-  first_name: string;
-  last_name: string;
-  staff_role: string;
-  assigned_area?: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  assignedArea?: string;
 }
 
 interface StaffAuthContextType {
@@ -64,10 +64,10 @@ export const StaffAuthProvider = ({ children }: { children: ReactNode }) => {
       const staff: StaffUser = {
         id: staffData.id,
         email: staffData.email,
-        first_name: staffData.first_name,
-        last_name: staffData.last_name,
-        staff_role: staffData.staff_role,
-        assigned_area: staffData.assigned_area
+        firstName: staffData.firstName,
+        lastName: staffData.lastName,
+        role: staffData.role,
+        assignedArea: staffData.assignedArea
       };
 
       setStaffUser(staff);
