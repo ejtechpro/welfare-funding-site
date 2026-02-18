@@ -92,4 +92,14 @@ router.post("/register", async (req, res) => {
   }
 });
 
+router.post("/login", async (req, res) => {
+  try {
+    const data = req.body;
+  } catch (error) {
+    res.status(500).json({
+      error: "Internal server error. Please try again later.",
+    });
+  }
+});
+
 module.exports = router;
