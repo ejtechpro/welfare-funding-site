@@ -17,7 +17,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Upload,
-  Users,
   Heart,
   User,
   Baby,
@@ -25,7 +24,8 @@ import {
   Receipt,
   Globe,
 } from "lucide-react";
-import { memberSignIn } from "@/api/member";
+import axios from "axios";
+import { processFile } from "@/utils/imageCompressor";
 
 interface MemberInfo {
   name: string;
@@ -70,13 +70,6 @@ interface ParentsInfo {
   parent2: ParentInfo;
 }
 
-interface RegistrationData {
-  memberInfo: MemberInfo;
-  spouseInfo: SpouseInfo;
-  children: ChildInfo[];
-  parentsInfo: ParentsInfo;
-  transactionId: string;
-}
 
 const MultiStepRegistration = () => {
   const { toast } = useToast();
@@ -409,157 +402,136 @@ const MultiStepRegistration = () => {
     }
   };
 
-  // React Query mutation
-  const registrationMutation = useMutation({
-    mutationFn: async (data: RegistrationData) => {
-      // Convert files to base64 or FormData as needed
-      const formData = new FormData();
-
-      // Append all data as JSON
-      const jsonData = {
-        memberInfo: {
-          ...data.memberInfo,
-          photo: data.memberInfo.photo
-            ? await fileToBase64(data.memberInfo.photo)
-            : null,
-        },
-        spouseInfo: {
-          ...data.spouseInfo,
-          photo: data.spouseInfo.photo
-            ? await fileToBase64(data.spouseInfo.photo)
-            : null,
-        },
-        children: await Promise.all(
-          data.children.map(async (child) => ({
-            ...child,
-            birthCertificate: child.birthCertificate
-              ? await fileToBase64(child.birthCertificate)
-              : null,
-          })),
-        ),
-        parentsInfo: data.parentsInfo,
-        transactionId: data.transactionId,
-      };
-
-      formData.append("data", JSON.stringify(jsonData));
-
-      const response = await fetch("/api/members", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Registration failed");
-      }
-
-      return response.json();
-    },
-    onSuccess: (data) => {
-      toast({
-        title: "Registration Submitted!",
-        description: `Your member registration has been submitted successfully. TNS Number: ${data.tnsNumber}`,
-      });
-
-      // Reset form
-      setCurrentStep(1);
-      setMemberInfo({
-        name: "",
-        email: "",
-        idNumber: "",
-        phone: "",
-        altPhone: "",
-        sex: "",
-        maritalStatus: "",
-        areaOfResidence: "",
-        country: "",
-        photo: null,
-      });
-      setSpouseInfo({
-        name: "",
-        idNumber: "",
-        phone: "",
-        altPhone: "",
-        sex: "",
-        areaOfResidence: "",
-        photo: null,
-      });
-      setChildren([]);
-      setParentsInfo({
-        parent1: {
-          name: "",
-          idNumber: "",
-          phone: "",
-          altPhone: "",
-          areaOfResidence: "",
-        },
-        parent2: {
-          name: "",
-          idNumber: "",
-          phone: "",
-          altPhone: "",
-          areaOfResidence: "",
-        },
-      });
-      setTransactionId("");
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Registration Failed",
-        description:
-          error.message || "Failed to submit registration. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Helper function to convert File to base64
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = (error) => reject(error);
+  const resetInputs = () => {
+    // Reset form
+    setCurrentStep(1);
+    setMemberInfo({
+      name: "",
+      email: "",
+      idNumber: "",
+      phone: "",
+      altPhone: "",
+      sex: "",
+      maritalStatus: "",
+      areaOfResidence: "",
+      country: "",
+      photo: null,
     });
+    setSpouseInfo({
+      name: "",
+      idNumber: "",
+      phone: "",
+      altPhone: "",
+      sex: "",
+      areaOfResidence: "",
+      photo: null,
+    });
+    setChildren([]);
+    setParentsInfo({
+      parent1: {
+        name: "",
+        idNumber: "",
+        phone: "",
+        altPhone: "",
+        areaOfResidence: "",
+      },
+      parent2: {
+        name: "",
+        idNumber: "",
+        phone: "",
+        altPhone: "",
+        areaOfResidence: "",
+      },
+    });
+    setTransactionId("");
   };
 
-  const handleSubmit = () => {
-    if (validateStep(currentStep)) {
-      registrationMutation.mutate({
+  const memberSignIn = async (data: any) => {
+    const formData = new FormData();
+
+    // send objects as JSON
+    formData.append("memberInfo", JSON.stringify(data.memberInfo));
+    formData.append("spouseInfo", JSON.stringify(data.spouseInfo));
+    formData.append("children", JSON.stringify(data.children));
+    formData.append("parentsInfo", JSON.stringify(data.parentsInfo));
+    formData.append("transactionId", data.transactionId);
+
+    // Member photo
+    if (data.memberInfo.photo) {
+      const memberPhoto = await processFile(data.memberInfo.photo);
+      if (memberPhoto) formData.append("memberPhoto", memberPhoto);
+    }
+
+    // Spouse photo
+    if (data.spouseInfo.photo) {
+      const spousePhoto = await processFile(data.spouseInfo.photo);
+      if (spousePhoto) formData.append("spousePhoto", spousePhoto);
+    }
+
+    // Children files
+    for (let i = 0; i < data.children.length; i++) {
+      const birthCert = data.children[i].birthCertificate;
+      if (birthCert) {
+        const certFile = await processFile(birthCert);
+        if (certFile) formData.append("childBirthCerts", certFile);
+      }
+    }
+
+    const res = await axios.post(
+      `http://localhost:3000/api/members/signIn`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+        withCredentials: true,
+       
+      },
+    );
+
+    return res.data;
+  };
+
+  const mutation = useMutation({
+    mutationFn: async () =>
+      memberSignIn({
         memberInfo,
         spouseInfo,
         children,
         parentsInfo,
         transactionId,
-      });
-    }
-  };
-
-  const mutation = useMutation({
-    mutationFn: async () =>  memberSignIn({ name: "TEST" }),
+      }),
 
     onSuccess: (data) => {
       if (data?.success) {
         toast({
           title: "Registration Submitted!",
-          description: `Success`,
+          description: `Your member registration has been submitted successfully.}`,
         });
+        resetInputs();
       }
     },
     onError: (err: any) => {
       if (err?.response?.data.error) {
         toast({
-          title: "Registration Failed!",
-          description: `${err?.response?.data.error}`,
+          title: "Registration Failed",
+          description: err?.response?.data.error,
         });
       } else {
         toast({
           title: "Registration Failed!",
-          description: `Internal server error!`,
+          description: `"Failed to submit registration. Please try again.",`,
         });
       }
     },
   });
+
+  const handleSubmit = () => {
+    if (validateStep(currentStep)) {
+      mutation.mutate();
+    }
+  };
+
 
   const renderStepContent = () => {
     switch (currentStep) {
@@ -711,9 +683,9 @@ const MultiStepRegistration = () => {
                     <SelectValue placeholder="Select sex" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Male">Male</SelectItem>
-                    <SelectItem value="Female">Female</SelectItem>
-                    <SelectItem value="Other">Other</SelectItem>
+                    <SelectItem value="male">Male</SelectItem>
+                    <SelectItem value="female">Female</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -802,7 +774,7 @@ const MultiStepRegistration = () => {
               </p>
             </div>
 
-            {memberInfo.maritalStatus === "Married" ? (
+            {memberInfo.maritalStatus === "married" ? (
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -1409,10 +1381,10 @@ const MultiStepRegistration = () => {
                 {currentStep === totalSteps ? (
                   <Button
                     onClick={handleSubmit}
-                    disabled={registrationMutation.isPending || !transactionId}
+                    disabled={mutation.isPending || !transactionId}
                     className="bg-gradient-primary hover:opacity-90 transition-opacity"
                   >
-                    {registrationMutation.isPending ? (
+                    {mutation.isPending ? (
                       <>
                         <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
                         Submitting...
