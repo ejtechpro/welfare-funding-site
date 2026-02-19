@@ -90,3 +90,50 @@ export type Contribution = {
   created_at: string; // timestamps as string or Date
   updated_at: string;
 };
+
+export interface MemberRegistration {
+  member: {
+    name: string;
+    email: string;
+    idNumber: string;
+    phone: string;
+    altPhone?: string;
+    sex: string;
+    maritalStatus: string;
+    areaOfResidence: string;
+    country?: string;
+    photo?: File | null;
+  };
+  spouse?: {
+    name: string;
+    idNumber: string;
+    phone: string;
+    altPhone?: string;
+    sex: string;
+    areaOfResidence: string;
+    photo?: File | null;
+  };
+  children?: {
+    name: string;
+    dob: string;
+    age: string;
+    birthCertificate?: File | null;
+  }[];
+  parents?: {
+    parent1: {
+      name: string;
+      idNumber?: string;
+      phone: string;
+      altPhone?: string;
+      areaOfResidence: string;
+    };
+    parent2: {
+      name: string;
+      idNumber?: string;
+      phone: string;
+      altPhone?: string;
+      areaOfResidence: string;
+    };
+  };
+}
+

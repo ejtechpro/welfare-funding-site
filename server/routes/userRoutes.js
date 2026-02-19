@@ -1,6 +1,5 @@
 const express = require("express");
 const prisma = require("../config/conn.js");
-require("dotenv").config();
 
 const router = express.Router();
 
@@ -89,5 +88,4 @@ router.post("/logout-other-devices", async (req, res) => {
   }
 });
 
-
-module.exports = router
+module.exports = router;

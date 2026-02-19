@@ -14,7 +14,7 @@ const Index = () => {
       <About />
       <Requirements />
       <RightsResponsibilities />
-      <MultiStepRegistration />
+      <MultiStepRegistration />/
       <Footer />
     </div>
   );

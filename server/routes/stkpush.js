@@ -2,7 +2,6 @@ const axios = require("axios");
 const prisma = require("../config/conn.js");
 const express = require("express");
 const router = express.Router();
-require("dotenv").config();
 
 // helper functions
 const getTimestamp = () => {
