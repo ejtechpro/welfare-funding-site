@@ -47,6 +47,7 @@ app.get("/api", async (req, res) => {
 
 app.use("/api/auth", require("./routes/authRoutes.js"));
 app.use("/mpesa", require("./routes/stkpush.js"));
+app.use("/members", require("./routes/memberRoutes.js"));
 app.use(auth);
 app.use("/api/users", require("./routes/userRoutes.js"));
 

@@ -8,4 +8,13 @@ require("dotenv").config();
 
 const router = express.Router();
 
-module.exports = router
+router.post("/signIn", async (req, res) => {
+  try {
+    const data = req.body;
+  } catch (error) {
+    console.log(error);
+    read.status(500).json({ error: "Internal server error!" });
+  }
+});
+
+module.exports = router;
