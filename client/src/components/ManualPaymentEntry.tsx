@@ -2,8 +2,20 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, Plus, DollarSign } from "lucide-react";
@@ -20,28 +32,31 @@ interface Member {
 
 // Define allowed payment types as constants for consistency
 const PAYMENT_TYPES = {
-  MONTHLY: 'monthly_contribution',
-  CASES: 'cases',
-  PROJECTS: 'projects', 
-  REGISTRATION: 'registration',
-  OTHERS: 'others'
+  MONTHLY: "monthly_contribution",
+  CASES: "cases",
+  PROJECTS: "projects",
+  REGISTRATION: "registration",
+  OTHERS: "others",
 } as const;
 
 const PAYMENT_TYPE_LABELS = {
-  [PAYMENT_TYPES.MONTHLY]: 'Monthly contribution',
-  [PAYMENT_TYPES.CASES]: 'Cases',
-  [PAYMENT_TYPES.PROJECTS]: 'Projects',
-  [PAYMENT_TYPES.REGISTRATION]: 'Registration',
-  [PAYMENT_TYPES.OTHERS]: 'Others'
+  [PAYMENT_TYPES.MONTHLY]: "Monthly contribution",
+  [PAYMENT_TYPES.CASES]: "Cases",
+  [PAYMENT_TYPES.PROJECTS]: "Projects",
+  [PAYMENT_TYPES.REGISTRATION]: "Registration",
+  [PAYMENT_TYPES.OTHERS]: "Others",
 } as const;
 
-export const ManualPaymentEntry = ({ onSuccess }: { onSuccess?: () => void }) => {
-  const { staffUser } = useStaffAuth();
+export const ManualPaymentEntry = ({
+  onSuccess,
+}: {
+  onSuccess?: () => void;
+}) => {
   const { user } = useAuth();
-  
-  console.log('ManualPaymentEntry initialized with:', {
-    staffUser: staffUser ? `${staffUser.first_name} ${staffUser.last_name} (${staffUser.staff_role})` : 'None',
-    authUser: user ? `${user.email}` : 'None'
+
+  console.log("ManualPaymentEntry initialized with:", {
+    user: user ? `${user.firstName} ${user?.lastName} (${user.role})` : "None",
+    authUser: user ? `${user.email}` : "None",
   });
   const [amount, setAmount] = useState("");
   const [selectedMember, setSelectedMember] = useState("");
@@ -50,21 +65,23 @@ export const ManualPaymentEntry = ({ onSuccess }: { onSuccess?: () => void }) =>
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [paymentType, setPaymentType] = useState<string>(PAYMENT_TYPES.MONTHLY);
   const [referenceNumber, setReferenceNumber] = useState("");
-  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
+  const [paymentDate, setPaymentDate] = useState(
+    new Date().toISOString().split("T")[0],
+  );
 
   const fetchMembers = async () => {
     setLoadingMembers(true);
     try {
       const { data, error } = await supabase
-        .from('membership_registrations')
-        .select('id, first_name, last_name, tns_number, email')
-        .eq('registration_status', 'approved')
-        .order('first_name');
+        .from("membership_registrations")
+        .select("id, first_name, last_name, tns_number, email")
+        .eq("registration_status", "approved")
+        .order("first_name");
 
       if (error) throw error;
       setMembers(data || []);
     } catch (error) {
-      console.error('Error fetching members:', error);
+      console.error("Error fetching members:", error);
       toast.error("Failed to fetch members");
     } finally {
       setLoadingMembers(false);
@@ -72,38 +89,42 @@ export const ManualPaymentEntry = ({ onSuccess }: { onSuccess?: () => void }) =>
   };
 
   const testAuth = async () => {
-    const isSuperAdmin = user?.email === 'brianokutu@gmail.com';
-    const hasStaffRole = staffUser && ['Admin', 'Treasurer'].includes(staffUser.staff_role);
-    
-    console.log('🔍 Authentication Test Results:', {
+    const isSuperAdmin = user?.email === "brianokutu@gmail.com";
+    const hasStaffRole = user && ["Admin", "Treasurer"].includes(user.role);
+
+    console.log("🔍 Authentication Test Results:", {
       userEmail: user?.email,
       isSuperAdmin,
-      staffUser: staffUser ? {
-        name: `${staffUser.first_name} ${staffUser.last_name}`,
-        role: staffUser.staff_role,
-        hasPermission: hasStaffRole
-      } : 'None',
-      canAccessManualPayment: isSuperAdmin || hasStaffRole
+      user: user
+        ? {
+            name: `${user.firstName} ${user?.lastName}`,
+            role: user.role,
+            hasPermission: hasStaffRole,
+          }
+        : "None",
+      canAccessManualPayment: isSuperAdmin || hasStaffRole,
     });
-    
+
     if (isSuperAdmin) {
-      toast.success('✅ Super Admin Access Granted', {
-        description: 'You have super admin privileges (brianokutu@gmail.com)'
+      toast.success("✅ Super Admin Access Granted", {
+        description: "You have super admin privileges (brianokutu@gmail.com)",
       });
     } else if (hasStaffRole) {
-      toast.success(`✅ Staff Access Granted (${staffUser.staff_role})`, {
-        description: 'You have Admin/Treasurer privileges for manual payment entry'
+      toast.success(`✅ Staff Access Granted (${user.role})`, {
+        description:
+          "You have Admin/Treasurer privileges for manual payment entry",
       });
     } else {
-      toast.error('❌ Access Denied', {
-        description: 'You need Admin/Treasurer role or super admin access (brianokutu@gmail.com)'
+      toast.error("❌ Access Denied", {
+        description:
+          "You need Admin/Treasurer role or super admin access (brianokutu@gmail.com)",
       });
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!selectedMember || !amount || !paymentDate || !paymentType) {
       toast.error("Please fill in all required fields");
       return;
@@ -122,98 +143,108 @@ export const ManualPaymentEntry = ({ onSuccess }: { onSuccess?: () => void }) =>
     }
 
     // Check staff permissions - allow Admin, Treasurer, and super admin
-    const isSuperAdmin = user?.email === 'brianokutu@gmail.com';
-    const hasStaffRole = staffUser && ['Admin', 'Treasurer'].includes(staffUser.staff_role);
-    
+    const isSuperAdmin = user?.email === "brianokutu@gmail.com";
+    const hasStaffRole = user && ["Admin", "Treasurer"].includes(user.role);
+
     if (!isSuperAdmin && !hasStaffRole) {
-      toast.error(`Access denied. Admin/Treasurer role required or super admin access.`);
+      toast.error(
+        `Access denied. Admin/Treasurer role required or super admin access.`,
+      );
       return;
     }
-    
-    console.log('🔐 Access granted:', {
+
+    console.log("🔐 Access granted:", {
       isSuperAdmin,
-      hasStaffRole: hasStaffRole ? staffUser.staff_role : 'None',
-      userEmail: user?.email
+      hasStaffRole: hasStaffRole ? user.role : "None",
+      userEmail: user?.email,
     });
 
     setIsLoading(true);
-    
+
     try {
       // Prepare staff user info (handle super admin case)
-      const staffInfo = isSuperAdmin && !staffUser ? {
-        id: user.id || 'super-admin',
-        name: user.email || 'Super Admin',
-        role: 'Super Admin'
-      } : {
-        id: staffUser.id,
-        name: `${staffUser.first_name} ${staffUser.last_name}`,
-        role: staffUser.staff_role
-      };
-      
+      const staffInfo =
+        isSuperAdmin && !user
+          ? {
+              id: user.id || "super-admin",
+              name: user.email || "Super Admin",
+              role: "Super Admin",
+            }
+          : {
+              id: user.id,
+              name: `${user.firstName} ${user?.lastName}`,
+              role: user.role,
+            };
+
       const paymentData = {
-        action: 'manual_payment',
+        action: "manual_payment",
         memberId: selectedMember,
         amount: parseFloat(amount),
         paymentType,
         paymentDate,
         referenceNumber,
-        staffUser: staffInfo
+        user: staffInfo,
       };
 
-      console.log('🚀 Recording manual payment:', paymentData);
+      console.log("🚀 Recording manual payment:", paymentData);
 
       // Use edge function with service role for guaranteed database access
-      const response = await fetch('https://wfqgnshhlfuznabweofj.supabase.co/functions/v1/record-transaction', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndmcWduc2hobGZ1em5hYndlb2ZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUyNTE0MzgsImV4cCI6MjA3MDgyNzQzOH0.EsPr_ypf7B1PXTWmjS2ZGXDVBe7HeNHDWsvJcgQpkLA',
-          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndmcWduc2hobGZ1em5hYndlb2ZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUyNTE0MzgsImV4cCI6MjA3MDgyNzQzOH0.EsPr_ypf7B1PXTWmjS2ZGXDVBe7HeNHDWsvJcgQpkLA'
+      const response = await fetch(
+        "https://wfqgnshhlfuznabweofj.supabase.co/functions/v1/record-transaction",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization:
+              "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndmcWduc2hobGZ1em5hYndlb2ZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUyNTE0MzgsImV4cCI6MjA3MDgyNzQzOH0.EsPr_ypf7B1PXTWmjS2ZGXDVBe7HeNHDWsvJcgQpkLA",
+            apikey:
+              "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndmcWduc2hobGZ1em5hYndlb2ZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUyNTE0MzgsImV4cCI6MjA3MDgyNzQzOH0.EsPr_ypf7B1PXTWmjS2ZGXDVBe7HeNHDWsvJcgQpkLA",
+          },
+          body: JSON.stringify(paymentData),
         },
-        body: JSON.stringify(paymentData)
-      });
+      );
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ Edge function failed:', response.status, errorText);
+        console.error("❌ Edge function failed:", response.status, errorText);
         throw new Error(`Payment recording failed: ${errorText}`);
       }
 
       const result = await response.json();
-      console.log('✅ Payment recorded successfully:', result);
+      console.log("✅ Payment recorded successfully:", result);
 
       if (!result.success) {
-        throw new Error(result.error || 'Payment recording failed');
+        throw new Error(result.error || "Payment recording failed");
       }
 
       // Show success message
       toast.success("✅ Manual payment recorded successfully!", {
-        description: `Amount: KES ${parseFloat(amount).toLocaleString()} • Member: ${members.find(m => m.id === selectedMember)?.first_name} ${members.find(m => m.id === selectedMember)?.last_name}`,
-        duration: 6000
+        description: `Amount: KES ${parseFloat(amount).toLocaleString()} • Member: ${members.find((m) => m.id === selectedMember)?.first_name} ${members.find((m) => m.id === selectedMember)?.last_name}`,
+        duration: 6000,
       });
 
       // Reset form
       setAmount("");
       setSelectedMember("");
       setReferenceNumber("");
-      setPaymentDate(new Date().toISOString().split('T')[0]);
+      setPaymentDate(new Date().toISOString().split("T")[0]);
       setPaymentType(PAYMENT_TYPES.MONTHLY);
 
       // Refresh AdminPortal data
-      console.log('🔄 Refreshing AdminPortal data...');
+      console.log("🔄 Refreshing AdminPortal data...");
       if (onSuccess) {
         // Wait a moment for database to propagate then refresh
         setTimeout(() => {
           onSuccess();
-          console.log('✅ AdminPortal data refresh triggered');
+          console.log("✅ AdminPortal data refresh triggered");
         }, 1000);
       }
     } catch (error: any) {
-      console.error('🚨 Edge function failed:', error);
-      
+      console.error("🚨 Edge function failed:", error);
+
       // Try fallback direct database insert
-      console.log('⚠️ Attempting fallback direct database insert...');
-      
+      console.log("⚠️ Attempting fallback direct database insert...");
+
       try {
         // Direct insert to contributions table
         const contributionData = {
@@ -221,94 +252,106 @@ export const ManualPaymentEntry = ({ onSuccess }: { onSuccess?: () => void }) =>
           amount: parseFloat(amount),
           contribution_date: paymentDate,
           contribution_type: paymentType,
-          status: 'confirmed'
+          status: "confirmed",
         };
-        
-        console.log('💾 Inserting contribution directly:', contributionData);
-        
-        const { data: contributionResult, error: contributionError } = await supabase
-          .from('contributions')
-          .insert(contributionData)
-          .select()
-          .single();
-          
+
+        console.log("💾 Inserting contribution directly:", contributionData);
+
+        const { data: contributionResult, error: contributionError } =
+          await supabase
+            .from("contributions")
+            .insert(contributionData)
+            .select()
+            .single();
+
         if (contributionError) {
-          console.error('❌ Contribution insert failed:', contributionError);
+          console.error("❌ Contribution insert failed:", contributionError);
           throw contributionError;
         }
-        
-        console.log('✅ Contribution recorded via fallback:', contributionResult);
-        
+
+        console.log(
+          "✅ Contribution recorded via fallback:",
+          contributionResult,
+        );
+
         // Create MPESA audit record (optional - don't fail if this fails)
         try {
           const mpesaData = {
             member_id: selectedMember,
             amount: parseFloat(amount),
-            phone_number: 'Manual Entry (Fallback)',
+            phone_number: "Manual Entry (Fallback)",
             mpesa_receipt_number: referenceNumber || `MANUAL_${Date.now()}`,
-            status: 'completed',
-            result_code: '0',
-            result_desc: 'Manual payment entry - fallback method',
-            transaction_date: new Date(paymentDate).toISOString()
+            status: "completed",
+            result_code: "0",
+            result_desc: "Manual payment entry - fallback method",
+            transaction_date: new Date(paymentDate).toISOString(),
           };
-          
-          console.log('💾 Creating MPESA audit record:', mpesaData);
-          
+
+          console.log("💾 Creating MPESA audit record:", mpesaData);
+
           const { error: mpesaError } = await supabase
-            .from('mpesa_payments')
+            .from("mpesa_payments")
             .insert(mpesaData);
-            
+
           if (mpesaError) {
-            console.warn('⚠️ MPESA audit record failed (non-critical):', mpesaError);
+            console.warn(
+              "⚠️ MPESA audit record failed (non-critical):",
+              mpesaError,
+            );
           } else {
-            console.log('✅ MPESA audit record created via fallback');
+            console.log("✅ MPESA audit record created via fallback");
           }
         } catch (auditError) {
-          console.warn('⚠️ MPESA audit failed (non-critical):', auditError);
+          console.warn("⚠️ MPESA audit failed (non-critical):", auditError);
         }
-        
+
         // Success via fallback
         toast.success("✅ Payment recorded successfully!", {
           description: `Amount: KES ${parseFloat(amount).toLocaleString()} • Recorded via fallback method`,
-          duration: 6000
+          duration: 6000,
         });
-        
+
         // Reset form
         setAmount("");
         setSelectedMember("");
         setReferenceNumber("");
-        setPaymentDate(new Date().toISOString().split('T')[0]);
+        setPaymentDate(new Date().toISOString().split("T")[0]);
         setPaymentType(PAYMENT_TYPES.MONTHLY);
-        
+
         // Refresh AdminPortal data
-        console.log('🔄 Refreshing AdminPortal data after fallback...');
+        console.log("🔄 Refreshing AdminPortal data after fallback...");
         if (onSuccess) {
           setTimeout(() => {
             onSuccess();
-            console.log('✅ AdminPortal data refresh triggered after fallback');
+            console.log("✅ AdminPortal data refresh triggered after fallback");
           }, 1000);
         }
-        
       } catch (fallbackError: any) {
-        console.error('❌ Fallback also failed:', fallbackError);
-        
+        console.error("❌ Fallback also failed:", fallbackError);
+
         let errorMessage = "Failed to record payment";
-        
+
         if (fallbackError.message) {
-          if (fallbackError.message.includes('permission denied') || fallbackError.message.includes('RLS')) {
-            errorMessage = "Permission denied - please ensure you're logged in as an authorized staff member";
-          } else if (fallbackError.message.includes('Failed to fetch')) {
-            errorMessage = "Network error - please check your connection and try again";
-          } else if (fallbackError.message.includes('timeout')) {
+          if (
+            fallbackError.message.includes("permission denied") ||
+            fallbackError.message.includes("RLS")
+          ) {
+            errorMessage =
+              "Permission denied - please ensure you're logged in as an authorized staff member";
+          } else if (fallbackError.message.includes("Failed to fetch")) {
+            errorMessage =
+              "Network error - please check your connection and try again";
+          } else if (fallbackError.message.includes("timeout")) {
             errorMessage = "Request timed out - please try again";
           } else {
             errorMessage = fallbackError.message;
           }
         }
-        
+
         toast.error(`❌ ${errorMessage}`, {
-          description: "Both primary and fallback methods failed. Please contact support if this persists.",
-          duration: 8000
+          description:
+            "Both primary and fallback methods failed. Please contact support if this persists.",
+          duration: 8000,
         });
       }
     } finally {
@@ -331,13 +374,14 @@ export const ManualPaymentEntry = ({ onSuccess }: { onSuccess?: () => void }) =>
           </span>
           <br />
           <span className="text-xs font-medium text-green-600 dark:text-green-400">
-            Payment Types: Monthly contribution • Cases • Projects • Registration • Others
+            Payment Types: Monthly contribution • Cases • Projects •
+            Registration • Others
           </span>
           <br />
-          <Button 
-            type="button" 
-            variant="outline" 
-            size="sm" 
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
             onClick={testAuth}
             className="mt-2 text-xs"
           >
@@ -349,19 +393,26 @@ export const ManualPaymentEntry = ({ onSuccess }: { onSuccess?: () => void }) =>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="member">Select Member</Label>
-            <Select value={selectedMember} onValueChange={setSelectedMember} onOpenChange={(open) => {
-              if (open && members.length === 0) fetchMembers();
-            }}>
+            <Select
+              value={selectedMember}
+              onValueChange={setSelectedMember}
+              onOpenChange={(open) => {
+                if (open && members.length === 0) fetchMembers();
+              }}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Choose a member" />
               </SelectTrigger>
               <SelectContent>
                 {loadingMembers ? (
-                  <SelectItem value="loading" disabled>Loading members...</SelectItem>
+                  <SelectItem value="loading" disabled>
+                    Loading members...
+                  </SelectItem>
                 ) : (
                   members.map((member) => (
                     <SelectItem key={member.id} value={member.id}>
-                      {member.tns_number} - {member.first_name} {member.last_name}
+                      {member.tns_number} - {member.first_name}{" "}
+                      {member.last_name}
                     </SelectItem>
                   ))
                 )}
@@ -385,7 +436,10 @@ export const ManualPaymentEntry = ({ onSuccess }: { onSuccess?: () => void }) =>
 
           <div className="space-y-2">
             <Label htmlFor="paymentType">Payment Type *</Label>
-            <Select value={paymentType} onValueChange={(value: string) => setPaymentType(value)}>
+            <Select
+              value={paymentType}
+              onValueChange={(value: string) => setPaymentType(value)}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select payment type" />
               </SelectTrigger>
@@ -424,7 +478,7 @@ export const ManualPaymentEntry = ({ onSuccess }: { onSuccess?: () => void }) =>
             />
           </div>
 
-          <Button 
+          <Button
             type="submit"
             className="w-full"
             disabled={isLoading || !selectedMember || !amount}
@@ -445,7 +499,9 @@ export const ManualPaymentEntry = ({ onSuccess }: { onSuccess?: () => void }) =>
 
         <div className="mt-4 text-center text-xs text-muted-foreground">
           <p>Paybill: 4148511</p>
-          <p>Use this form to record manual payments made via paybill or cash</p>
+          <p>
+            Use this form to record manual payments made via paybill or cash
+          </p>
         </div>
       </CardContent>
     </Card>

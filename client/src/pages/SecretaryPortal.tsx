@@ -1,30 +1,54 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useStaffAuth } from "@/hooks/useStaffAuth";
 import { useRoleGuard } from "@/hooks/useRoleGuard";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { 
-  ArrowLeft, 
-  Mail, 
-  Users, 
-  FileText, 
-  Calendar, 
-  Phone, 
+import {
+  ArrowLeft,
+  Mail,
+  Users,
+  FileText,
+  Calendar,
+  Phone,
   MessageSquare,
   Download,
   Search,
@@ -49,12 +73,13 @@ import {
   TrendingUp,
   Activity,
   Target,
-  Award
+  Award,
 } from "lucide-react";
 import { DocumentList } from "@/components/DocumentList";
 import { CommunicationCenter } from "@/components/CommunicationCenter";
 import { useCrossPortalSync } from "@/hooks/useCrossPortalSync";
 import { format, addDays, endOfWeek, isWithinInterval } from "date-fns";
+import { useAuth } from "@/hooks/useAuth";
 
 interface ContactSubmission {
   id: string;
@@ -93,8 +118,8 @@ interface Event {
   event_date: string;
   event_time: string;
   location: string;
-  event_type: 'meeting' | 'training' | 'social' | 'other';
-  status: 'planned' | 'confirmed' | 'cancelled' | 'completed';
+  event_type: "meeting" | "training" | "social" | "other";
+  status: "planned" | "confirmed" | "cancelled" | "completed";
   max_attendees?: number;
   created_at: string;
   created_by: string;
@@ -107,8 +132,8 @@ interface Meeting {
   meeting_date: string;
   meeting_time: string;
   location: string;
-  meeting_type: 'regular' | 'emergency' | 'special';
-  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+  meeting_type: "regular" | "emergency" | "special";
+  status: "scheduled" | "in_progress" | "completed" | "cancelled";
   attendees?: string[];
   minutes?: string;
   action_items?: string[];
@@ -127,11 +152,15 @@ interface DashboardStats {
 }
 
 const SecretaryPortal = () => {
-  const { staffUser, logout } = useStaffAuth();
-  const { isAuthorized, isLoading: roleLoading } = useRoleGuard({ portal: 'secretary' });
+  const { user, signOut } = useAuth();
+  // const { isAuthorized, isLoading: roleLoading } = useRoleGuard({ portal: 'secretary' });
+  const isAuthorized = true;
+  const roleLoading = false;
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [contactSubmissions, setContactSubmissions] = useState<ContactSubmission[]>([]);
+  const [contactSubmissions, setContactSubmissions] = useState<
+    ContactSubmission[]
+  >([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
@@ -143,30 +172,33 @@ const SecretaryPortal = () => {
     upcoming_events: 0,
     recent_communications: 0,
     this_month_registrations: 0,
-    document_shares_this_week: 0
+    document_shares_this_week: 0,
   });
-  
+
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState("");
   const [memberFilter, setMemberFilter] = useState<string>("all");
-  const [selectedSubmission, setSelectedSubmission] = useState<ContactSubmission | null>(null);
+  const [selectedSubmission, setSelectedSubmission] =
+    useState<ContactSubmission | null>(null);
   const [responseMessage, setResponseMessage] = useState("");
-  
+
   // Modal and form states
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
-  const [isMeetingModalOpen, setIsMeetingModalOpen] = useState(false);
+  const [isMeetingModalOpen, setIsMeetingModalOpen] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  
+
   // Set up cross-portal synchronization for member data
   useCrossPortalSync({
     onRefreshRequired: (source: string, reason: string) => {
-      console.log(`SecretaryPortal: Refreshing data due to: ${reason} (from: ${source})`);
+      console.log(
+        `SecretaryPortal: Refreshing data due to: ${reason} (from: ${source})`,
+      );
       fetchData();
     },
-    portalName: 'SecretaryPortal',
-    autoRefresh: true
+    portalName: "SecretaryPortal",
+    autoRefresh: true,
   });
 
   useEffect(() => {
@@ -179,56 +211,67 @@ const SecretaryPortal = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      
+
       // Fetch all members with comprehensive data
       const { data: memberData, error: memberError } = await supabase
-        .from('membership_registrations')
-        .select('*')
-        .order('first_name');
+        .from("membership_registrations")
+        .select("*")
+        .order("first_name");
 
       if (memberError) {
-        console.error('Error fetching members:', memberError);
-        toast.error('Failed to load member directory');
+        console.error("Error fetching members:", memberError);
+        toast.error("Failed to load member directory");
       } else {
         setMembers(memberData || []);
       }
 
       // Fetch documents count
       const { count: documentsCount, error: documentsError } = await supabase
-        .from('documents')
-        .select('*', { count: 'exact', head: true });
+        .from("documents")
+        .select("*", { count: "exact", head: true });
 
       // Fetch recent communications count (using documents as a proxy since member_notifications doesn't exist)
       const { count: communicationsCount, error: commsError } = await supabase
-        .from('documents')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
+        .from("documents")
+        .select("*", { count: "exact", head: true })
+        .gte(
+          "created_at",
+          new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+        );
 
       // Calculate statistics
       const totalMembers = memberData?.length || 0;
-      const activeMembers = memberData?.filter(m => m.registration_status === 'approved').length || 0;
-      const pendingRegistrations = memberData?.filter(m => m.registration_status === 'pending').length || 0;
-      const thisMonthRegistrations = memberData?.filter(m => {
-        const createdDate = new Date(m.created_at || '');
-        const currentDate = new Date();
-        return createdDate.getMonth() === currentDate.getMonth() && 
-               createdDate.getFullYear() === currentDate.getFullYear();
-      }).length || 0;
+      const activeMembers =
+        memberData?.filter((m) => m.registration_status === "approved")
+          .length || 0;
+      const pendingRegistrations =
+        memberData?.filter((m) => m.registration_status === "pending").length ||
+        0;
+      const thisMonthRegistrations =
+        memberData?.filter((m) => {
+          const createdDate = new Date(m.created_at || "");
+          const currentDate = new Date();
+          return (
+            createdDate.getMonth() === currentDate.getMonth() &&
+            createdDate.getFullYear() === currentDate.getFullYear()
+          );
+        }).length || 0;
 
       setDashboardStats({
         total_members: totalMembers,
         active_members: activeMembers,
         pending_registrations: pendingRegistrations,
         total_documents: documentsCount || 0,
-        upcoming_events: events.filter(e => new Date(e.event_date) > new Date()).length,
+        upcoming_events: events.filter(
+          (e) => new Date(e.event_date) > new Date(),
+        ).length,
         recent_communications: communicationsCount || 0,
         this_month_registrations: thisMonthRegistrations,
-        document_shares_this_week: 0 // This would need document_shares table
+        document_shares_this_week: 0, // This would need document_shares table
       });
-
     } catch (error) {
-      console.error('Error fetching data:', error);
-      toast.error('Failed to load portal data');
+      console.error("Error fetching data:", error);
+      toast.error("Failed to load portal data");
     } finally {
       setLoading(false);
     }
@@ -238,56 +281,65 @@ const SecretaryPortal = () => {
     setRefreshing(true);
     await fetchData();
     setRefreshing(false);
-    toast.success('Data refreshed successfully');
+    toast.success("Data refreshed successfully");
   };
 
   const handleSignOut = () => {
-    logout();
+    signOut();
     navigate("/portal-login");
     toast.success("Signed out successfully");
   };
 
-  const filteredMembers = members.filter(member => {
-    const matchesSearch = 
-      `${member.first_name} ${member.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      member.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      member.tns_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      member.phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      `${member.city}, ${member.state}`.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesFilter = memberFilter === "all" || 
-                         (memberFilter === "approved" && member.registration_status === "approved") ||
-                         (memberFilter === "pending" && member.registration_status === "pending") ||
-                         (memberFilter === "paid" && member.payment_status === "paid") ||
-                         (memberFilter === "unpaid" && member.payment_status !== "paid");
-    
+  const filteredMembers = members.filter((member) => {
+    const matchesSearch =
+      `${member?.first_name} ${member?.last_name}`
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      member?.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      member?.tns_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      member?.phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      `${member?.city}, ${member?.state}`
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
+
+    const matchesFilter =
+      memberFilter === "all" ||
+      (memberFilter === "approved" &&
+        member?.registration_status === "approved") ||
+      (memberFilter === "pending" &&
+        member?.registration_status === "pending") ||
+      (memberFilter === "paid" && member?.payment_status === "paid") ||
+      (memberFilter === "unpaid" && member?.payment_status !== "paid");
+
     return matchesSearch && matchesFilter;
   });
 
   const exportMemberDirectory = async () => {
     try {
       const csvContent = [
-        ['TNS Number', 'Name', 'Email', 'Phone', 'Location'].join(','),
-        ...filteredMembers.map(member => [
-          member.tns_number || '',
-          `${member.first_name} ${member.last_name}`,
-          member.email,
-          member.phone,
-          `${member.city}, ${member.state}`
-        ].join(','))
-      ].join('\n');
+        ["TNS Number", "Name", "Email", "Phone", "Location"].join(","),
+        ...filteredMembers.map((member) =>
+          [
+            member?.tns_number || "",
+            `${member?.first_name} ${member?.last_name}`,
+            member?.email,
+            member?.phone,
+            `${member?.city}, ${member?.state}`,
+          ].join(","),
+        ),
+      ].join("\n");
 
-      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const blob = new Blob([csvContent], { type: "text/csv" });
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
-      a.download = 'member-directory.csv';
+      a.download = "member-directory.csv";
       a.click();
       window.URL.revokeObjectURL(url);
-      
+
       toast.success("Member directory exported successfully");
     } catch (error) {
-      console.error('Export error:', error);
+      console.error("Export error:", error);
       toast.error("Failed to export directory");
     }
   };
@@ -299,7 +351,9 @@ const SecretaryPortal = () => {
         <div className="text-center space-y-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
           <p className="text-muted-foreground font-medium">
-            {roleLoading ? 'Verifying secretary access...' : 'Loading Secretary Portal...'}
+            {roleLoading
+              ? "Verifying secretary access..."
+              : "Loading Secretary Portal..."}
           </p>
         </div>
       </div>
@@ -313,7 +367,9 @@ const SecretaryPortal = () => {
         <div className="text-center space-y-4">
           <div className="text-red-600 dark:text-red-400 text-6xl mb-4">🚫</div>
           <div className="space-y-2">
-            <p className="text-red-600 dark:text-red-400 font-bold text-xl">Access Denied</p>
+            <p className="text-red-600 dark:text-red-400 font-bold text-xl">
+              Access Denied
+            </p>
             <p className="text-gray-600 dark:text-gray-400">
               You don't have permission to access the Secretary Portal.
             </p>
@@ -350,14 +406,12 @@ const SecretaryPortal = () => {
                   disabled={refreshing}
                   className="flex items-center gap-2"
                 >
-                  <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-                  {refreshing ? 'Refreshing...' : 'Refresh'}
+                  <RefreshCw
+                    className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+                  />
+                  {refreshing ? "Refreshing..." : "Refresh"}
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleSignOut}
-                >
+                <Button variant="outline" size="sm" onClick={handleSignOut}>
                   Sign Out
                 </Button>
               </div>
@@ -365,7 +419,8 @@ const SecretaryPortal = () => {
                 <Avatar className="h-12 w-12 border-2 border-primary/20">
                   <AvatarImage src={undefined} />
                   <AvatarFallback className="bg-gradient-to-br from-primary to-secondary text-white">
-                    {staffUser?.first_name?.[0]}{staffUser?.last_name?.[0]}
+                    {user?.first_name?.[0]}
+                    {user?.last_name?.[0]}
                   </AvatarFallback>
                 </Avatar>
                 <div>
@@ -373,19 +428,21 @@ const SecretaryPortal = () => {
                     Secretary Portal
                   </h1>
                   <p className="text-muted-foreground mt-1">
-                    Welcome back, {staffUser?.first_name} {staffUser?.last_name} • {format(new Date(), 'EEEE, MMMM do, yyyy')}
+                    Welcome back, {user?.first_name} {user?.last_name} •{" "}
+                    {format(new Date(), "EEEE, MMMM do, yyyy")}
                   </p>
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+              <Badge
+                variant="outline"
+                className="bg-green-50 text-green-700 border-green-200"
+              >
                 <Activity className="h-3 w-3 mr-1" />
                 Online
               </Badge>
-              <Badge variant="secondary">
-                Secretary Role
-              </Badge>
+              <Badge variant="secondary">Secretary Role</Badge>
             </div>
           </div>
 
@@ -393,29 +450,44 @@ const SecretaryPortal = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/20 dark:to-blue-900/20 border-blue-200 dark:border-blue-800">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-blue-900 dark:text-blue-100">Total Members</CardTitle>
+                <CardTitle className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                  Total Members
+                </CardTitle>
                 <Users className="h-4 w-4 text-blue-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">{dashboardStats.total_members}</div>
+                <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
+                  {dashboardStats.total_members}
+                </div>
                 <div className="flex items-center gap-1 mt-1">
                   <TrendingUp className="h-3 w-3 text-green-600" />
-                  <p className="text-xs text-muted-foreground">+{dashboardStats.this_month_registrations} this month</p>
+                  <p className="text-xs text-muted-foreground">
+                    +{dashboardStats.this_month_registrations} this month
+                  </p>
                 </div>
               </CardContent>
             </Card>
 
             <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950/20 dark:to-green-900/20 border-green-200 dark:border-green-800">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-green-900 dark:text-green-100">Active Members</CardTitle>
+                <CardTitle className="text-sm font-medium text-green-900 dark:text-green-100">
+                  Active Members
+                </CardTitle>
                 <CheckCircle className="h-4 w-4 text-green-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-900 dark:text-green-100">{dashboardStats.active_members}</div>
+                <div className="text-2xl font-bold text-green-900 dark:text-green-100">
+                  {dashboardStats.active_members}
+                </div>
                 <div className="flex items-center gap-1 mt-1">
                   <Target className="h-3 w-3 text-green-600" />
                   <p className="text-xs text-muted-foreground">
-                    {((dashboardStats.active_members / Math.max(dashboardStats.total_members, 1)) * 100).toFixed(1)}% approval rate
+                    {(
+                      (dashboardStats.active_members /
+                        Math.max(dashboardStats.total_members, 1)) *
+                      100
+                    ).toFixed(1)}
+                    % approval rate
                   </p>
                 </div>
               </CardContent>
@@ -423,25 +495,35 @@ const SecretaryPortal = () => {
 
             <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950/20 dark:to-purple-900/20 border-purple-200 dark:border-purple-800">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-purple-900 dark:text-purple-100">Documents</CardTitle>
+                <CardTitle className="text-sm font-medium text-purple-900 dark:text-purple-100">
+                  Documents
+                </CardTitle>
                 <FileText className="h-4 w-4 text-purple-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-purple-900 dark:text-purple-100">{dashboardStats.total_documents}</div>
+                <div className="text-2xl font-bold text-purple-900 dark:text-purple-100">
+                  {dashboardStats.total_documents}
+                </div>
                 <div className="flex items-center gap-1 mt-1">
                   <BookOpen className="h-3 w-3 text-purple-600" />
-                  <p className="text-xs text-muted-foreground">Managed documents</p>
+                  <p className="text-xs text-muted-foreground">
+                    Managed documents
+                  </p>
                 </div>
               </CardContent>
             </Card>
 
             <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950/20 dark:to-orange-900/20 border-orange-200 dark:border-orange-800">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-orange-900 dark:text-orange-100">Communications</CardTitle>
+                <CardTitle className="text-sm font-medium text-orange-900 dark:text-orange-100">
+                  Communications
+                </CardTitle>
                 <MessageSquare className="h-4 w-4 text-orange-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-orange-900 dark:text-orange-100">{dashboardStats.recent_communications}</div>
+                <div className="text-2xl font-bold text-orange-900 dark:text-orange-100">
+                  {dashboardStats.recent_communications}
+                </div>
                 <div className="flex items-center gap-1 mt-1">
                   <Send className="h-3 w-3 text-orange-600" />
                   <p className="text-xs text-muted-foreground">This week</p>
@@ -453,27 +535,45 @@ const SecretaryPortal = () => {
 
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsList className="grid w-full grid-cols-6 h-12">
-            <TabsTrigger value="overview" className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-secondary data-[state=active]:text-white">
+            <TabsTrigger
+              value="overview"
+              className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-secondary data-[state=active]:text-white"
+            >
               <BarChart3 className="h-4 w-4" />
               <span className="hidden sm:inline">Overview</span>
             </TabsTrigger>
-            <TabsTrigger value="communications" className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-secondary data-[state=active]:text-white">
+            <TabsTrigger
+              value="communications"
+              className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-secondary data-[state=active]:text-white"
+            >
               <Mail className="h-4 w-4" />
               <span className="hidden sm:inline">Communications</span>
             </TabsTrigger>
-            <TabsTrigger value="directory" className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-secondary data-[state=active]:text-white">
+            <TabsTrigger
+              value="directory"
+              className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-secondary data-[state=active]:text-white"
+            >
               <Users className="h-4 w-4" />
               <span className="hidden sm:inline">Directory</span>
             </TabsTrigger>
-            <TabsTrigger value="documents" className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-secondary data-[state=active]:text-white">
+            <TabsTrigger
+              value="documents"
+              className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-secondary data-[state=active]:text-white"
+            >
               <FileText className="h-4 w-4" />
               <span className="hidden sm:inline">Documents</span>
             </TabsTrigger>
-            <TabsTrigger value="meetings" className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-secondary data-[state=active]:text-white">
+            <TabsTrigger
+              value="meetings"
+              className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-secondary data-[state=active]:text-white"
+            >
               <ClipboardList className="h-4 w-4" />
               <span className="hidden sm:inline">Meetings</span>
             </TabsTrigger>
-            <TabsTrigger value="events" className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-secondary data-[state=active]:text-white">
+            <TabsTrigger
+              value="events"
+              className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-secondary data-[state=active]:text-white"
+            >
               <Calendar className="h-4 w-4" />
               <span className="hidden sm:inline">Events</span>
             </TabsTrigger>
@@ -495,39 +595,62 @@ const SecretaryPortal = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <Button variant="outline" className="justify-start h-auto p-4" onClick={() => setIsMeetingModalOpen(true)}>
+                    <Button
+                      variant="outline"
+                      className="justify-start h-auto p-4"
+                      onClick={() => setIsMeetingModalOpen(true)}
+                    >
                       <div className="flex items-center gap-3">
                         <CalendarPlus className="h-5 w-5 text-primary" />
                         <div className="text-left">
                           <div className="font-semibold">Schedule Meeting</div>
-                          <div className="text-sm text-muted-foreground">Create new meeting agenda</div>
+                          <div className="text-sm text-muted-foreground">
+                            Create new meeting agenda
+                          </div>
                         </div>
                       </div>
                     </Button>
-                    <Button variant="outline" className="justify-start h-auto p-4" onClick={() => setIsEventModalOpen(true)}>
+                    <Button
+                      variant="outline"
+                      className="justify-start h-auto p-4"
+                      onClick={() => setIsEventModalOpen(true)}
+                    >
                       <div className="flex items-center gap-3">
                         <Calendar className="h-5 w-5 text-primary" />
                         <div className="text-left">
                           <div className="font-semibold">Create Event</div>
-                          <div className="text-sm text-muted-foreground">Plan organizational event</div>
+                          <div className="text-sm text-muted-foreground">
+                            Plan organizational event
+                          </div>
                         </div>
                       </div>
                     </Button>
-                    <Button variant="outline" className="justify-start h-auto p-4" onClick={exportMemberDirectory}>
+                    <Button
+                      variant="outline"
+                      className="justify-start h-auto p-4"
+                      onClick={exportMemberDirectory}
+                    >
                       <div className="flex items-center gap-3">
                         <Download className="h-5 w-5 text-primary" />
                         <div className="text-left">
                           <div className="font-semibold">Export Directory</div>
-                          <div className="text-sm text-muted-foreground">Download member list</div>
+                          <div className="text-sm text-muted-foreground">
+                            Download member list
+                          </div>
                         </div>
                       </div>
                     </Button>
-                    <Button variant="outline" className="justify-start h-auto p-4">
+                    <Button
+                      variant="outline"
+                      className="justify-start h-auto p-4"
+                    >
                       <div className="flex items-center gap-3">
                         <BarChart3 className="h-5 w-5 text-primary" />
                         <div className="text-left">
                           <div className="font-semibold">Generate Reports</div>
-                          <div className="text-sm text-muted-foreground">Create activity summary</div>
+                          <div className="text-sm text-muted-foreground">
+                            Create activity summary
+                          </div>
                         </div>
                       </div>
                     </Button>
@@ -549,21 +672,27 @@ const SecretaryPortal = () => {
                       <div className="w-2 h-2 rounded-full bg-green-500 mt-2 flex-shrink-0"></div>
                       <div className="text-sm">
                         <p className="font-medium">New member registration</p>
-                        <p className="text-muted-foreground text-xs">2 hours ago</p>
+                        <p className="text-muted-foreground text-xs">
+                          2 hours ago
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
                       <div className="w-2 h-2 rounded-full bg-blue-500 mt-2 flex-shrink-0"></div>
                       <div className="text-sm">
                         <p className="font-medium">Document shared</p>
-                        <p className="text-muted-foreground text-xs">5 hours ago</p>
+                        <p className="text-muted-foreground text-xs">
+                          5 hours ago
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
                       <div className="w-2 h-2 rounded-full bg-orange-500 mt-2 flex-shrink-0"></div>
                       <div className="text-sm">
                         <p className="font-medium">Meeting scheduled</p>
-                        <p className="text-muted-foreground text-xs">1 day ago</p>
+                        <p className="text-muted-foreground text-xs">
+                          1 day ago
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -585,33 +714,78 @@ const SecretaryPortal = () => {
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">Registration Rate</span>
+                        <span className="text-sm font-medium">
+                          Registration Rate
+                        </span>
                         <Badge variant="secondary">
-                          {((dashboardStats.active_members / Math.max(dashboardStats.total_members, 1)) * 100).toFixed(0)}%
+                          {(
+                            (dashboardStats.active_members /
+                              Math.max(dashboardStats.total_members, 1)) *
+                            100
+                          ).toFixed(0)}
+                          %
                         </Badge>
                       </div>
-                      <Progress value={(dashboardStats.active_members / Math.max(dashboardStats.total_members, 1)) * 100} className="h-2" />
+                      <Progress
+                        value={
+                          (dashboardStats.active_members /
+                            Math.max(dashboardStats.total_members, 1)) *
+                          100
+                        }
+                        className="h-2"
+                      />
                     </div>
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">Monthly Growth</span>
-                        <Badge variant="secondary">{dashboardStats.this_month_registrations}</Badge>
+                        <span className="text-sm font-medium">
+                          Monthly Growth
+                        </span>
+                        <Badge variant="secondary">
+                          {dashboardStats.this_month_registrations}
+                        </Badge>
                       </div>
-                      <Progress value={(dashboardStats.this_month_registrations / Math.max(dashboardStats.total_members, 1)) * 100} className="h-2" />
+                      <Progress
+                        value={
+                          (dashboardStats.this_month_registrations /
+                            Math.max(dashboardStats.total_members, 1)) *
+                          100
+                        }
+                        className="h-2"
+                      />
                     </div>
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">Active Communications</span>
-                        <Badge variant="secondary">{dashboardStats.recent_communications}</Badge>
+                        <span className="text-sm font-medium">
+                          Active Communications
+                        </span>
+                        <Badge variant="secondary">
+                          {dashboardStats.recent_communications}
+                        </Badge>
                       </div>
-                      <Progress value={Math.min(dashboardStats.recent_communications * 10, 100)} className="h-2" />
+                      <Progress
+                        value={Math.min(
+                          dashboardStats.recent_communications * 10,
+                          100,
+                        )}
+                        className="h-2"
+                      />
                     </div>
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">Document Management</span>
-                        <Badge variant="secondary">{dashboardStats.total_documents}</Badge>
+                        <span className="text-sm font-medium">
+                          Document Management
+                        </span>
+                        <Badge variant="secondary">
+                          {dashboardStats.total_documents}
+                        </Badge>
                       </div>
-                      <Progress value={Math.min(dashboardStats.total_documents * 5, 100)} className="h-2" />
+                      <Progress
+                        value={Math.min(
+                          dashboardStats.total_documents * 5,
+                          100,
+                        )}
+                        className="h-2"
+                      />
                     </div>
                   </div>
                 </CardContent>
@@ -633,10 +807,13 @@ const SecretaryPortal = () => {
                     <CardTitle className="flex items-center gap-2">
                       <Users className="h-5 w-5" />
                       Member Directory
-                      <Badge variant="secondary">{filteredMembers.length} of {members.length}</Badge>
+                      <Badge variant="secondary">
+                        {filteredMembers.length} of {members.length}
+                      </Badge>
                     </CardTitle>
                     <CardDescription>
-                      Comprehensive member database with search and filtering capabilities
+                      Comprehensive member database with search and filtering
+                      capabilities
                     </CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
@@ -644,7 +821,10 @@ const SecretaryPortal = () => {
                       <UserPlus className="h-4 w-4 mr-2" />
                       Add Member
                     </Button>
-                    <Button onClick={exportMemberDirectory} className="flex items-center gap-2">
+                    <Button
+                      onClick={exportMemberDirectory}
+                      className="flex items-center gap-2"
+                    >
                       <Download className="h-4 w-4" />
                       Export Directory
                     </Button>
@@ -669,11 +849,43 @@ const SecretaryPortal = () => {
                       <SelectValue placeholder="Filter members" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Members ({members.length})</SelectItem>
-                      <SelectItem value="approved">Approved ({members.filter(m => m.registration_status === 'approved').length})</SelectItem>
-                      <SelectItem value="pending">Pending ({members.filter(m => m.registration_status === 'pending').length})</SelectItem>
-                      <SelectItem value="paid">Paid ({members.filter(m => m.payment_status === 'paid').length})</SelectItem>
-                      <SelectItem value="unpaid">Unpaid ({members.filter(m => m.payment_status !== 'paid').length})</SelectItem>
+                      <SelectItem value="all">
+                        All Members ({members.length})
+                      </SelectItem>
+                      <SelectItem value="approved">
+                        Approved (
+                        {
+                          members.filter(
+                            (m) => m.registration_status === "approved",
+                          ).length
+                        }
+                        )
+                      </SelectItem>
+                      <SelectItem value="pending">
+                        Pending (
+                        {
+                          members.filter(
+                            (m) => m.registration_status === "pending",
+                          ).length
+                        }
+                        )
+                      </SelectItem>
+                      <SelectItem value="paid">
+                        Paid (
+                        {
+                          members.filter((m) => m.payment_status === "paid")
+                            .length
+                        }
+                        )
+                      </SelectItem>
+                      <SelectItem value="unpaid">
+                        Unpaid (
+                        {
+                          members.filter((m) => m.payment_status !== "paid")
+                            .length
+                        }
+                        )
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -683,8 +895,12 @@ const SecretaryPortal = () => {
                   <div className="bg-blue-50 dark:bg-blue-950/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-medium text-blue-900 dark:text-blue-100">Total</p>
-                        <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{members.length}</p>
+                        <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                          Total
+                        </p>
+                        <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">
+                          {members.length}
+                        </p>
                       </div>
                       <Users className="h-5 w-5 text-blue-600" />
                     </div>
@@ -692,8 +908,16 @@ const SecretaryPortal = () => {
                   <div className="bg-green-50 dark:bg-green-950/20 p-3 rounded-lg border border-green-200 dark:border-green-800">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-medium text-green-900 dark:text-green-100">Approved</p>
-                        <p className="text-2xl font-bold text-green-900 dark:text-green-100">{members.filter(m => m.registration_status === 'approved').length}</p>
+                        <p className="text-sm font-medium text-green-900 dark:text-green-100">
+                          Approved
+                        </p>
+                        <p className="text-2xl font-bold text-green-900 dark:text-green-100">
+                          {
+                            members.filter(
+                              (m) => m.registration_status === "approved",
+                            ).length
+                          }
+                        </p>
                       </div>
                       <CheckCircle className="h-5 w-5 text-green-600" />
                     </div>
@@ -701,8 +925,16 @@ const SecretaryPortal = () => {
                   <div className="bg-yellow-50 dark:bg-yellow-950/20 p-3 rounded-lg border border-yellow-200 dark:border-yellow-800">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-medium text-yellow-900 dark:text-yellow-100">Pending</p>
-                        <p className="text-2xl font-bold text-yellow-900 dark:text-yellow-100">{members.filter(m => m.registration_status === 'pending').length}</p>
+                        <p className="text-sm font-medium text-yellow-900 dark:text-yellow-100">
+                          Pending
+                        </p>
+                        <p className="text-2xl font-bold text-yellow-900 dark:text-yellow-100">
+                          {
+                            members.filter(
+                              (m) => m.registration_status === "pending",
+                            ).length
+                          }
+                        </p>
                       </div>
                       <Clock className="h-5 w-5 text-yellow-600" />
                     </div>
@@ -710,8 +942,18 @@ const SecretaryPortal = () => {
                   <div className="bg-purple-50 dark:bg-purple-950/20 p-3 rounded-lg border border-purple-200 dark:border-purple-800">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-medium text-purple-900 dark:text-purple-100">Areas</p>
-                        <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">{[...new Set(members.map(m => `${m.city}, ${m.state}`))].length}</p>
+                        <p className="text-sm font-medium text-purple-900 dark:text-purple-100">
+                          Areas
+                        </p>
+                        <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">
+                          {
+                            [
+                              ...new Set(
+                                members.map((m) => `${m.city}, ${m.state}`),
+                              ),
+                            ].length
+                          }
+                        </p>
                       </div>
                       <MapPin className="h-5 w-5 text-purple-600" />
                     </div>
@@ -733,32 +975,46 @@ const SecretaryPortal = () => {
                     </TableHeader>
                     <TableBody>
                       {filteredMembers.map((member, index) => (
-                        <TableRow key={member.id} className={index % 2 === 0 ? "bg-muted/20" : ""}>
+                        <TableRow
+                          key={member?.id}
+                          className={index % 2 === 0 ? "bg-muted/20" : ""}
+                        >
                           <TableCell>
                             <Avatar className="h-10 w-10 border-2 border-muted">
-                              <AvatarImage src={member.profile_picture_url} />
+                              <AvatarImage src={member?.profile_picture_url} />
                               <AvatarFallback className="bg-gradient-to-br from-primary/20 to-secondary/20 text-foreground">
-                                {member.first_name?.[0]}{member.last_name?.[0]}
+                                {member?.first_name?.[0]}
+                                {member?.last_name?.[0]}
                               </AvatarFallback>
                             </Avatar>
                           </TableCell>
                           <TableCell>
                             <div>
                               <div className="flex items-center gap-2">
-                                <p className="font-semibold">{member.first_name} {member.last_name}</p>
-                                {member.sex && (
+                                <p className="font-semibold">
+                                  {member?.first_name} {member?.last_name}
+                                </p>
+                                {member?.sex && (
                                   <Badge variant="outline" className="text-xs">
-                                    {member.sex}
+                                    {member?.sex}
                                   </Badge>
                                 )}
                               </div>
                               <div className="flex items-center gap-2 mt-1">
-                                <Badge variant={member.tns_number ? "secondary" : "outline"} className="text-xs">
-                                  TNS: {member.tns_number || 'Pending'}
+                                <Badge
+                                  variant={
+                                    member?.tns_number ? "secondary" : "outline"
+                                  }
+                                  className="text-xs"
+                                >
+                                  TNS: {member?.tns_number || "Pending"}
                                 </Badge>
-                                {member.marital_status && (
-                                  <Badge variant="outline" className="text-xs capitalize">
-                                    {member.marital_status}
+                                {member?.marital_status && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-xs capitalize"
+                                  >
+                                    {member?.marital_status}
                                   </Badge>
                                 )}
                               </div>
@@ -768,74 +1024,100 @@ const SecretaryPortal = () => {
                             <div className="space-y-1">
                               <div className="flex items-center gap-2 text-sm">
                                 <Mail className="h-3 w-3 text-muted-foreground" />
-                                <span className="truncate max-w-32">{member.email}</span>
+                                <span className="truncate max-w-32">
+                                  {member?.email}
+                                </span>
                               </div>
                               <div className="flex items-center gap-2 text-sm">
                                 <Phone className="h-3 w-3 text-muted-foreground" />
-                                <span>{member.phone}</span>
+                                <span>{member?.phone}</span>
                               </div>
                             </div>
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-1">
                               <MapPin className="h-3 w-3 text-muted-foreground" />
-                              <span className="text-sm">{member.city}, {member.state}</span>
+                              <span className="text-sm">
+                                {member?.city}, {member?.state}
+                              </span>
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge 
-                              variant={member.registration_status === 'approved' ? 'default' : member.registration_status === 'pending' ? 'secondary' : 'destructive'}
+                            <Badge
+                              variant={
+                                member?.registration_status === "approved"
+                                  ? "default"
+                                  : member?.registration_status === "pending"
+                                    ? "secondary"
+                                    : "destructive"
+                              }
                               className="capitalize"
                             >
                               <div className="flex items-center gap-1">
-                                {member.registration_status === 'approved' ? 
-                                  <CheckCircle className="h-3 w-3" /> : 
-                                  member.registration_status === 'pending' ?
-                                  <Clock className="h-3 w-3" /> :
+                                {member?.registration_status === "approved" ? (
+                                  <CheckCircle className="h-3 w-3" />
+                                ) : member?.registration_status ===
+                                  "pending" ? (
+                                  <Clock className="h-3 w-3" />
+                                ) : (
                                   <AlertCircle className="h-3 w-3" />
-                                }
-                                {member.registration_status}
+                                )}
+                                {member?.registration_status}
                               </div>
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <Badge 
-                              variant={member.payment_status === 'paid' ? 'default' : 'outline'}
-                              className={member.payment_status === 'paid' ? 'bg-green-100 text-green-800 border-green-200' : 'border-orange-200 text-orange-600'}
+                            <Badge
+                              variant={
+                                member?.payment_status === "paid"
+                                  ? "default"
+                                  : "outline"
+                              }
+                              className={
+                                member?.payment_status === "paid"
+                                  ? "bg-green-100 text-green-800 border-green-200"
+                                  : "border-orange-200 text-orange-600"
+                              }
                             >
-                              {member.payment_status === 'paid' ? 'Paid' : 'Pending'}
+                              {member?.payment_status === "paid"
+                                ? "Paid"
+                                : "Pending"}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1">
-                              <Button 
-                                variant="ghost" 
+                              <Button
+                                variant="ghost"
                                 size="sm"
                                 className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-                                onClick={() => window.open(`tel:${member.phone}`)}
+                                onClick={() =>
+                                  window.open(`tel:${member?.phone}`)
+                                }
                                 title="Call member"
                               >
                                 <Phone className="h-4 w-4" />
                               </Button>
-                              <Button 
-                                variant="ghost" 
+                              <Button
+                                variant="ghost"
                                 size="sm"
                                 className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-                                onClick={() => window.open(`mailto:${member.email}`)}
+                                onClick={() =>
+                                  window.open(`mailto:${member?.email}`)
+                                }
                                 title="Email member"
                               >
                                 <Mail className="h-4 w-4" />
                               </Button>
-                              <Button 
-                                variant="ghost" 
+                              <Button
+                                variant="ghost"
                                 size="sm"
                                 className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
                                 title="View member profile"
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>
-                              <Button 
-                                variant="ghost" 
+                              <Button
+                                variant="ghost"
                                 size="sm"
                                 className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
                                 title="Edit member"
@@ -853,7 +1135,9 @@ const SecretaryPortal = () => {
                 {filteredMembers.length === 0 && (
                   <div className="text-center py-8">
                     <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">No members found matching your search.</p>
+                    <p className="text-muted-foreground">
+                      No members found matching your search.
+                    </p>
                   </div>
                 )}
               </CardContent>
@@ -897,16 +1181,24 @@ const SecretaryPortal = () => {
                           <div className="flex items-start justify-between">
                             <div className="space-y-2">
                               <div className="flex items-center gap-2">
-                                <h4 className="font-semibold">Monthly Board Meeting</h4>
+                                <h4 className="font-semibold">
+                                  Monthly Board Meeting
+                                </h4>
                                 <Badge variant="secondary">Regular</Badge>
-                                <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">
+                                <Badge
+                                  variant="outline"
+                                  className="text-green-600 border-green-200 bg-green-50"
+                                >
                                   Scheduled
                                 </Badge>
                               </div>
                               <div className="flex items-center gap-4 text-sm text-muted-foreground">
                                 <div className="flex items-center gap-1">
                                   <Calendar className="h-4 w-4" />
-                                  {format(addDays(new Date(), 7), 'MMM dd, yyyy')}
+                                  {format(
+                                    addDays(new Date(), 7),
+                                    "MMM dd, yyyy",
+                                  )}
                                 </div>
                                 <div className="flex items-center gap-1">
                                   <Clock className="h-4 w-4" />
@@ -918,17 +1210,30 @@ const SecretaryPortal = () => {
                                 </div>
                               </div>
                               <p className="text-sm text-muted-foreground">
-                                Monthly review of organizational activities and future planning.
+                                Monthly review of organizational activities and
+                                future planning.
                               </p>
                             </div>
                             <div className="flex items-center gap-2">
-                              <Button variant="ghost" size="sm" title="View Agenda">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                title="View Agenda"
+                              >
                                 <Eye className="h-4 w-4" />
                               </Button>
-                              <Button variant="ghost" size="sm" title="Edit Meeting">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                title="Edit Meeting"
+                              >
                                 <Edit className="h-4 w-4" />
                               </Button>
-                              <Button variant="ghost" size="sm" title="Send Invitations">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                title="Send Invitations"
+                              >
                                 <Send className="h-4 w-4" />
                               </Button>
                             </div>
@@ -941,16 +1246,24 @@ const SecretaryPortal = () => {
                           <div className="flex items-start justify-between">
                             <div className="space-y-2">
                               <div className="flex items-center gap-2">
-                                <h4 className="font-semibold">Emergency Planning Session</h4>
+                                <h4 className="font-semibold">
+                                  Emergency Planning Session
+                                </h4>
                                 <Badge variant="destructive">Emergency</Badge>
-                                <Badge variant="outline" className="text-yellow-600 border-yellow-200 bg-yellow-50">
+                                <Badge
+                                  variant="outline"
+                                  className="text-yellow-600 border-yellow-200 bg-yellow-50"
+                                >
                                   Pending
                                 </Badge>
                               </div>
                               <div className="flex items-center gap-4 text-sm text-muted-foreground">
                                 <div className="flex items-center gap-1">
                                   <Calendar className="h-4 w-4" />
-                                  {format(addDays(new Date(), 14), 'MMM dd, yyyy')}
+                                  {format(
+                                    addDays(new Date(), 14),
+                                    "MMM dd, yyyy",
+                                  )}
                                 </div>
                                 <div className="flex items-center gap-1">
                                   <Clock className="h-4 w-4" />
@@ -962,17 +1275,30 @@ const SecretaryPortal = () => {
                                 </div>
                               </div>
                               <p className="text-sm text-muted-foreground">
-                                Special session to address urgent organizational matters.
+                                Special session to address urgent organizational
+                                matters.
                               </p>
                             </div>
                             <div className="flex items-center gap-2">
-                              <Button variant="ghost" size="sm" title="View Agenda">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                title="View Agenda"
+                              >
                                 <Eye className="h-4 w-4" />
                               </Button>
-                              <Button variant="ghost" size="sm" title="Edit Meeting">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                title="Edit Meeting"
+                              >
                                 <Edit className="h-4 w-4" />
                               </Button>
-                              <Button variant="ghost" size="sm" title="Send Invitations">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                title="Send Invitations"
+                              >
                                 <Send className="h-4 w-4" />
                               </Button>
                             </div>
@@ -982,7 +1308,10 @@ const SecretaryPortal = () => {
                     </div>
 
                     <div className="text-center py-4">
-                      <Button variant="outline" onClick={() => setIsMeetingModalOpen(true)}>
+                      <Button
+                        variant="outline"
+                        onClick={() => setIsMeetingModalOpen(true)}
+                      >
                         <CalendarPlus className="h-4 w-4 mr-2" />
                         Schedule New Meeting
                       </Button>
@@ -1007,13 +1336,17 @@ const SecretaryPortal = () => {
                         <Badge variant="secondary">4</Badge>
                       </div>
                       <Progress value={80} className="h-2" />
-                      <p className="text-xs text-muted-foreground">4 meetings scheduled</p>
+                      <p className="text-xs text-muted-foreground">
+                        4 meetings scheduled
+                      </p>
                     </div>
 
                     <Separator />
 
                     <div className="space-y-3">
-                      <h4 className="font-semibold text-sm">Upcoming This Week</h4>
+                      <h4 className="font-semibold text-sm">
+                        Upcoming This Week
+                      </h4>
                       <div className="space-y-2">
                         <div className="flex items-center justify-between text-sm">
                           <span>Board Meeting</span>
@@ -1072,39 +1405,59 @@ const SecretaryPortal = () => {
               </CardHeader>
               <CardContent>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  <Button variant="outline" className="justify-start h-auto p-4">
+                  <Button
+                    variant="outline"
+                    className="justify-start h-auto p-4"
+                  >
                     <div className="flex items-center gap-3">
                       <Calendar className="h-5 w-5 text-primary" />
                       <div className="text-left">
                         <div className="font-semibold">View Calendar</div>
-                        <div className="text-sm text-muted-foreground">Meeting schedule</div>
+                        <div className="text-sm text-muted-foreground">
+                          Meeting schedule
+                        </div>
                       </div>
                     </div>
                   </Button>
-                  <Button variant="outline" className="justify-start h-auto p-4">
+                  <Button
+                    variant="outline"
+                    className="justify-start h-auto p-4"
+                  >
                     <div className="flex items-center gap-3">
                       <ClipboardList className="h-5 w-5 text-primary" />
                       <div className="text-left">
                         <div className="font-semibold">Meeting Minutes</div>
-                        <div className="text-sm text-muted-foreground">Record keeping</div>
+                        <div className="text-sm text-muted-foreground">
+                          Record keeping
+                        </div>
                       </div>
                     </div>
                   </Button>
-                  <Button variant="outline" className="justify-start h-auto p-4">
+                  <Button
+                    variant="outline"
+                    className="justify-start h-auto p-4"
+                  >
                     <div className="flex items-center gap-3">
                       <Users className="h-5 w-5 text-primary" />
                       <div className="text-left">
                         <div className="font-semibold">Attendance</div>
-                        <div className="text-sm text-muted-foreground">Track participation</div>
+                        <div className="text-sm text-muted-foreground">
+                          Track participation
+                        </div>
                       </div>
                     </div>
                   </Button>
-                  <Button variant="outline" className="justify-start h-auto p-4">
+                  <Button
+                    variant="outline"
+                    className="justify-start h-auto p-4"
+                  >
                     <div className="flex items-center gap-3">
                       <Award className="h-5 w-5 text-primary" />
                       <div className="text-left">
                         <div className="font-semibold">Reports</div>
-                        <div className="text-sm text-muted-foreground">Generate summaries</div>
+                        <div className="text-sm text-muted-foreground">
+                          Generate summaries
+                        </div>
                       </div>
                     </div>
                   </Button>
@@ -1126,7 +1479,8 @@ const SecretaryPortal = () => {
                         Event Management
                       </CardTitle>
                       <CardDescription>
-                        Organize and coordinate organizational events, activities, and social gatherings
+                        Organize and coordinate organizational events,
+                        activities, and social gatherings
                       </CardDescription>
                     </div>
                     <Button onClick={() => setIsEventModalOpen(true)}>
@@ -1139,16 +1493,28 @@ const SecretaryPortal = () => {
                   <div className="space-y-6">
                     {/* Event Filters */}
                     <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="secondary" className="cursor-pointer hover:bg-secondary/80">
+                      <Badge
+                        variant="secondary"
+                        className="cursor-pointer hover:bg-secondary/80"
+                      >
                         All Events (5)
                       </Badge>
-                      <Badge variant="outline" className="cursor-pointer hover:bg-muted">
+                      <Badge
+                        variant="outline"
+                        className="cursor-pointer hover:bg-muted"
+                      >
                         Upcoming (3)
                       </Badge>
-                      <Badge variant="outline" className="cursor-pointer hover:bg-muted">
+                      <Badge
+                        variant="outline"
+                        className="cursor-pointer hover:bg-muted"
+                      >
                         This Month (2)
                       </Badge>
-                      <Badge variant="outline" className="cursor-pointer hover:bg-muted">
+                      <Badge
+                        variant="outline"
+                        className="cursor-pointer hover:bg-muted"
+                      >
                         Completed (2)
                       </Badge>
                     </div>
@@ -1159,23 +1525,31 @@ const SecretaryPortal = () => {
                         <Star className="h-4 w-4 text-yellow-500" />
                         Upcoming Events
                       </h3>
-                      
+
                       <div className="space-y-3">
                         <Card className="border-l-4 border-l-blue-500">
                           <CardContent className="p-4">
                             <div className="flex items-start justify-between">
                               <div className="space-y-2">
                                 <div className="flex items-center gap-2">
-                                  <h4 className="font-semibold">Annual General Meeting</h4>
+                                  <h4 className="font-semibold">
+                                    Annual General Meeting
+                                  </h4>
                                   <Badge variant="default">Meeting</Badge>
-                                  <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50">
+                                  <Badge
+                                    variant="outline"
+                                    className="text-blue-600 border-blue-200 bg-blue-50"
+                                  >
                                     Confirmed
                                   </Badge>
                                 </div>
                                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
                                   <div className="flex items-center gap-1">
                                     <Calendar className="h-4 w-4" />
-                                    {format(addDays(new Date(), 10), 'MMM dd, yyyy')}
+                                    {format(
+                                      addDays(new Date(), 10),
+                                      "MMM dd, yyyy",
+                                    )}
                                   </div>
                                   <div className="flex items-center gap-1">
                                     <Clock className="h-4 w-4" />
@@ -1191,17 +1565,30 @@ const SecretaryPortal = () => {
                                   </div>
                                 </div>
                                 <p className="text-sm text-muted-foreground">
-                                  Annual review, financial reports, and election of new officials.
+                                  Annual review, financial reports, and election
+                                  of new officials.
                                 </p>
                               </div>
                               <div className="flex items-center gap-2">
-                                <Button variant="ghost" size="sm" title="View Details">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  title="View Details"
+                                >
                                   <Eye className="h-4 w-4" />
                                 </Button>
-                                <Button variant="ghost" size="sm" title="Edit Event">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  title="Edit Event"
+                                >
                                   <Edit className="h-4 w-4" />
                                 </Button>
-                                <Button variant="ghost" size="sm" title="Send Invitations">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  title="Send Invitations"
+                                >
                                   <Send className="h-4 w-4" />
                                 </Button>
                               </div>
@@ -1214,16 +1601,24 @@ const SecretaryPortal = () => {
                             <div className="flex items-start justify-between">
                               <div className="space-y-2">
                                 <div className="flex items-center gap-2">
-                                  <h4 className="font-semibold">Skills Development Workshop</h4>
+                                  <h4 className="font-semibold">
+                                    Skills Development Workshop
+                                  </h4>
                                   <Badge variant="secondary">Training</Badge>
-                                  <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">
+                                  <Badge
+                                    variant="outline"
+                                    className="text-green-600 border-green-200 bg-green-50"
+                                  >
                                     Confirmed
                                   </Badge>
                                 </div>
                                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
                                   <div className="flex items-center gap-1">
                                     <Calendar className="h-4 w-4" />
-                                    {format(addDays(new Date(), 18), 'MMM dd, yyyy')}
+                                    {format(
+                                      addDays(new Date(), 18),
+                                      "MMM dd, yyyy",
+                                    )}
                                   </div>
                                   <div className="flex items-center gap-1">
                                     <Clock className="h-4 w-4" />
@@ -1239,17 +1634,30 @@ const SecretaryPortal = () => {
                                   </div>
                                 </div>
                                 <p className="text-sm text-muted-foreground">
-                                  Professional development workshop focusing on leadership and communication skills.
+                                  Professional development workshop focusing on
+                                  leadership and communication skills.
                                 </p>
                               </div>
                               <div className="flex items-center gap-2">
-                                <Button variant="ghost" size="sm" title="View Details">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  title="View Details"
+                                >
                                   <Eye className="h-4 w-4" />
                                 </Button>
-                                <Button variant="ghost" size="sm" title="Edit Event">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  title="Edit Event"
+                                >
                                   <Edit className="h-4 w-4" />
                                 </Button>
-                                <Button variant="ghost" size="sm" title="Send Invitations">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  title="Send Invitations"
+                                >
                                   <Send className="h-4 w-4" />
                                 </Button>
                               </div>
@@ -1262,16 +1670,24 @@ const SecretaryPortal = () => {
                             <div className="flex items-start justify-between">
                               <div className="space-y-2">
                                 <div className="flex items-center gap-2">
-                                  <h4 className="font-semibold">Team Building Retreat</h4>
+                                  <h4 className="font-semibold">
+                                    Team Building Retreat
+                                  </h4>
                                   <Badge variant="outline">Social</Badge>
-                                  <Badge variant="outline" className="text-yellow-600 border-yellow-200 bg-yellow-50">
+                                  <Badge
+                                    variant="outline"
+                                    className="text-yellow-600 border-yellow-200 bg-yellow-50"
+                                  >
                                     Planning
                                   </Badge>
                                 </div>
                                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
                                   <div className="flex items-center gap-1">
                                     <Calendar className="h-4 w-4" />
-                                    {format(addDays(new Date(), 25), 'MMM dd, yyyy')}
+                                    {format(
+                                      addDays(new Date(), 25),
+                                      "MMM dd, yyyy",
+                                    )}
                                   </div>
                                   <div className="flex items-center gap-1">
                                     <Clock className="h-4 w-4" />
@@ -1287,17 +1703,30 @@ const SecretaryPortal = () => {
                                   </div>
                                 </div>
                                 <p className="text-sm text-muted-foreground">
-                                  Annual team building activities, games, and networking event for all members.
+                                  Annual team building activities, games, and
+                                  networking event for all members.
                                 </p>
                               </div>
                               <div className="flex items-center gap-2">
-                                <Button variant="ghost" size="sm" title="View Details">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  title="View Details"
+                                >
                                   <Eye className="h-4 w-4" />
                                 </Button>
-                                <Button variant="ghost" size="sm" title="Edit Event">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  title="Edit Event"
+                                >
                                   <Edit className="h-4 w-4" />
                                 </Button>
-                                <Button variant="ghost" size="sm" title="Send Invitations">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  title="Send Invitations"
+                                >
                                   <Send className="h-4 w-4" />
                                 </Button>
                               </div>
@@ -1323,18 +1752,24 @@ const SecretaryPortal = () => {
                     {/* Event Stats */}
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">This Quarter</span>
+                        <span className="text-sm font-medium">
+                          This Quarter
+                        </span>
                         <Badge variant="secondary">8</Badge>
                       </div>
                       <Progress value={75} className="h-2" />
-                      <p className="text-xs text-muted-foreground">3 remaining</p>
+                      <p className="text-xs text-muted-foreground">
+                        3 remaining
+                      </p>
                     </div>
 
                     <Separator />
 
                     {/* Event Types */}
                     <div className="space-y-3">
-                      <h4 className="font-semibold text-sm">Event Categories</h4>
+                      <h4 className="font-semibold text-sm">
+                        Event Categories
+                      </h4>
                       <div className="space-y-2">
                         <div className="flex items-center justify-between text-sm">
                           <div className="flex items-center gap-2">
@@ -1396,39 +1831,60 @@ const SecretaryPortal = () => {
               </CardHeader>
               <CardContent>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  <Button variant="outline" className="justify-start h-auto p-4" onClick={() => setIsEventModalOpen(true)}>
+                  <Button
+                    variant="outline"
+                    className="justify-start h-auto p-4"
+                    onClick={() => setIsEventModalOpen(true)}
+                  >
                     <div className="flex items-center gap-3">
                       <CalendarPlus className="h-5 w-5 text-primary" />
                       <div className="text-left">
                         <div className="font-semibold">New Event</div>
-                        <div className="text-sm text-muted-foreground">Create & schedule</div>
+                        <div className="text-sm text-muted-foreground">
+                          Create & schedule
+                        </div>
                       </div>
                     </div>
                   </Button>
-                  <Button variant="outline" className="justify-start h-auto p-4">
+                  <Button
+                    variant="outline"
+                    className="justify-start h-auto p-4"
+                  >
                     <div className="flex items-center gap-3">
                       <Users className="h-5 w-5 text-primary" />
                       <div className="text-left">
                         <div className="font-semibold">Attendee List</div>
-                        <div className="text-sm text-muted-foreground">Manage RSVPs</div>
+                        <div className="text-sm text-muted-foreground">
+                          Manage RSVPs
+                        </div>
                       </div>
                     </div>
                   </Button>
-                  <Button variant="outline" className="justify-start h-auto p-4">
+                  <Button
+                    variant="outline"
+                    className="justify-start h-auto p-4"
+                  >
                     <div className="flex items-center gap-3">
                       <Send className="h-5 w-5 text-primary" />
                       <div className="text-left">
                         <div className="font-semibold">Invitations</div>
-                        <div className="text-sm text-muted-foreground">Send & track</div>
+                        <div className="text-sm text-muted-foreground">
+                          Send & track
+                        </div>
                       </div>
                     </div>
                   </Button>
-                  <Button variant="outline" className="justify-start h-auto p-4">
+                  <Button
+                    variant="outline"
+                    className="justify-start h-auto p-4"
+                  >
                     <div className="flex items-center gap-3">
                       <BarChart3 className="h-5 w-5 text-primary" />
                       <div className="text-left">
                         <div className="font-semibold">Analytics</div>
-                        <div className="text-sm text-muted-foreground">Event reports</div>
+                        <div className="text-sm text-muted-foreground">
+                          Event reports
+                        </div>
                       </div>
                     </div>
                   </Button>
@@ -1453,24 +1909,34 @@ const SecretaryPortal = () => {
                       <div className="flex items-center gap-3 mb-3">
                         <Users className="h-8 w-8 text-chart-1" />
                         <div>
-                          <h3 className="font-semibold">Member Directory Report</h3>
-                          <p className="text-sm text-muted-foreground">Complete member listing</p>
+                          <h3 className="font-semibold">
+                            Member Directory Report
+                          </h3>
+                          <p className="text-sm text-muted-foreground">
+                            Complete member listing
+                          </p>
                         </div>
                       </div>
-                      <Button variant="outline" size="sm" onClick={exportMemberDirectory}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={exportMemberDirectory}
+                      >
                         <Download className="h-4 w-4 mr-2" />
                         Download CSV
                       </Button>
                     </CardContent>
                   </Card>
-                  
+
                   <Card>
                     <CardContent className="p-4">
                       <div className="flex items-center gap-3 mb-3">
                         <Mail className="h-8 w-8 text-chart-2" />
                         <div>
                           <h3 className="font-semibold">Communication Log</h3>
-                          <p className="text-sm text-muted-foreground">Inquiry and response history</p>
+                          <p className="text-sm text-muted-foreground">
+                            Inquiry and response history
+                          </p>
                         </div>
                       </div>
                       <Button variant="outline" size="sm">

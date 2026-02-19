@@ -1,6 +1,9 @@
-import { useState, useEffect, createContext, useContext } from "react";
-import { User, Session } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
+import { createContext, useContext } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { Session, User } from "@/types";
+import { currentUserOptions } from "@/queries/userQueryOptions";
+import { logout } from "@/api/user";
+import { useNavigate } from "react-router-dom";
 
 interface AuthContextType {
   user: User | null;
@@ -25,38 +28,26 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
-  useEffect(() => {
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
-      }
-    );
-
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+  const { data: user, isLoading } = useQuery(currentUserOptions());
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setSession(null);
+    await logout();
+    navigate("/");
+    queryClient.removeQueries({ queryKey: ["current-user"] });
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signOut }}>
+    <AuthContext.Provider
+      value={{
+        user: user ?? null,
+        session: null,
+        loading: isLoading,
+        signOut,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

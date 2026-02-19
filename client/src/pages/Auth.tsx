@@ -13,27 +13,25 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Loader2, ArrowLeft } from "lucide-react";
-import api from "@/api/api";
-import { useMutation } from "@tanstack/react-query";
-import { registerUser } from "@/api/user";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { registerUser, userLogin } from "@/api/user";
+import { useAuth } from "@/hooks/useAuth";
 
 const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     // Check if user is already logged in
-    const checkUser = async () => {
-      const session = await api.post("/staff/me");
-      if (session.data?.token) {
-        navigate("/");
-      }
-    };
-    // checkUser();
-  }, [navigate]);
+    if (user) {
+      navigate("/dashboard");
+    }
+  }, [navigate, user]);
 
   const signUpMutation = useMutation({
     mutationFn: async () => {
@@ -42,8 +40,8 @@ const Auth = () => {
         password,
         firstName: firstName,
         lastName: lastName,
-        phoneNumber: null,
-        role: "staff",
+        phone: null,
+        role: "user",
       });
     },
     onSuccess: (data) => {
@@ -64,28 +62,35 @@ const Auth = () => {
     },
   });
 
-  const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    try {
-      const res = await api.post("/staff/login", {
+  const loginMutation = useMutation({
+    mutationFn: async () => {
+      return userLogin({
         email: email,
         password,
       });
-
-      if (res.data?.error) {
-        toast.error(res.data.error);
-        return;
-      }
-
-      if (res.data?.token) {
+    },
+    onSuccess: async (data) => {
+      if (data?.token) {
+        // Invalidate/refetch current-user so AuthProvider updates
+        await queryClient.invalidateQueries({ queryKey: ["current-user"] });
+        navigate("/dashboard");
+        setEmail("");
+        setPassword("");
         toast.success("Successfully signed in!");
-        localStorage.setItem("token", res.data?.token);
-        navigate("/");
       }
-    } catch (error) {
-      toast.error("An unexpected error occurred");
-    }
+    },
+    onError: (error: any) => {
+      if (error?.response?.data?.error) {
+        toast.error(error.response.data.error);
+      } else {
+        toast.error("An unexpected error occurred");
+      }
+    },
+  });
+
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    loginMutation.mutate();
   };
 
   const handleSignUp = (e: React.FormEvent) => {
@@ -151,9 +156,15 @@ const Auth = () => {
                 <Button
                   type="submit"
                   className="w-full"
-                  disabled={signUpMutation.isPending}
+                  disabled={
+                    signUpMutation.isPending ||
+                    loading ||
+                    loginMutation.isPending
+                  }
                 >
-                  {signUpMutation.isPending && (
+                  {(signUpMutation.isPending ||
+                    loading ||
+                    loginMutation.isPending) && (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   )}
                   Sign In
@@ -210,9 +221,15 @@ const Auth = () => {
                 <Button
                   type="submit"
                   className="w-full"
-                  disabled={signUpMutation.isPending}
+                  disabled={
+                    signUpMutation.isPending ||
+                    loading ||
+                    loginMutation.isPending
+                  }
                 >
-                  {signUpMutation.isPending && (
+                  {(signUpMutation.isPending ||
+                    loading ||
+                    loginMutation.isPending) && (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   )}
                   Create Account

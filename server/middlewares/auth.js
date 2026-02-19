@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const { verifyOptions } = require("../config/token");
+const { verifyOptions } = require("../config/token.js");
 const crypto = require("crypto");
 
 const auth = async (req, res, next) => {
@@ -8,12 +8,12 @@ const auth = async (req, res, next) => {
     let token = null;
     const authHeader = req.headers.Authorization || req.headers.authorization;
 
-    const x_csrf_token = req.headers["x-csrf-token"];
+    // const x_csrf_token = req.headers["x-csrf-token"];
     const csrftoken = req.cookies.csrftoken;
 
-    if (!x_csrf_token || x_csrf_token !== csrftoken) {
-      return res.status(403).json({ error: "Forbidden!" });
-    }
+    // if (!x_csrf_token || x_csrf_token !== csrftoken) {
+    //   return res.status(403).json({ error: "Forbidden!" });
+    // }
 
     // 1. Check cookies first
     if (req.cookies?.sessionid) {
@@ -38,16 +38,16 @@ const auth = async (req, res, next) => {
           return res.status(401).json({ error: "You are unauthorized!!!" });
         }
 
-        if (user.status !== "ACTIVE") {
+        if (user.status !== "active") {
           return res.status(401).json({
             error: `Account is ${user.status}. Please contact support.`,
           });
         }
-        if (!user.isVerified) {
-          return res.status(401).json({
-            error: "Please verify your email address.",
-          });
-        }
+        // if (!user.isVerified) {
+        //   return res.status(401).json({
+        //     error: "Please verify your email address.",
+        //   });
+        // }
 
         req.user = user;
         next();

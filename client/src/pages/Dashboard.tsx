@@ -1,61 +1,35 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Users, FileText, DollarSign, Settings, Shield } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import {
+  Loader2,
+  Users,
+  FileText,
+  DollarSign,
+  Settings,
+  Shield,
+} from "lucide-react";
 import { toast } from "sonner";
-
-interface StaffRole {
-  id: string;
-  staff_role: string;
-  pending: string;
-  assigned_area?: string;
-}
+import type { UserRole } from "@/types";
 
 const Dashboard = () => {
-  const { user, signOut } = useAuth();
+  const { user, signOut, loading } = useAuth();
   const navigate = useNavigate();
-  const [staffRole, setStaffRole] = useState<StaffRole | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!user) {
-      navigate("/auth");
-      return;
-    }
 
-    fetchUserRole();
-  }, [user, navigate]);
-
-  const fetchUserRole = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("staff_registrations")
-        .select("*")
-        .eq("user_id", user?.id)
-        .eq("pending", "approved")
-        .single();
-
-      if (error && error.code !== "PGRST116") {
-        console.error("Error fetching staff role:", error);
-        return;
-      }
-
-      setStaffRole(data);
-    } catch (error) {
-      console.error("Error:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const userRole = user?.role as UserRole;
 
   const handleSignOut = async () => {
     try {
       await signOut();
-      navigate("/auth");
       toast.success("Successfully signed out");
     } catch (error) {
       toast.error("Error signing out");
@@ -74,18 +48,22 @@ const Dashboard = () => {
     );
   }
 
-  if (!staffRole) {
+  if (!userRole) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md text-center">
           <CardHeader>
             <CardTitle>Access Restricted</CardTitle>
             <CardDescription>
-              You don't have an approved staff role. Please contact your administrator.
+              No role assigned. Please contact your administrator.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button onClick={handleSignOut} variant="outline" className="w-full">
+            <Button
+              onClick={handleSignOut}
+              variant="outline"
+              className="w-full"
+            >
               Sign Out
             </Button>
           </CardContent>
@@ -96,73 +74,72 @@ const Dashboard = () => {
 
   const getRolePortals = () => {
     const portals = [];
-    
-    switch (staffRole.staff_role) {
-      case "Area Coordinator":
+
+    switch (userRole) {
+      case "area_coordinator":
         portals.push({
           title: "Area Coordinator Portal",
           description: "Manage members in your assigned area",
           icon: Users,
           route: "coordinator",
-          area: staffRole.assigned_area
         });
         break;
-        
-      case "General Coordinator":
+
+      case "general_coordinator":
         portals.push({
           title: "General Coordinator Portal",
           description: "Oversee all coordinators and approve tasks",
           icon: Settings,
-          route: "general-coordinator"
+          route: "general-coordinator",
         });
         break;
-        
-      case "Secretary":
+
+      case "secretary":
         portals.push({
           title: "Secretary Portal",
           description: "Handle administrative tasks and documentation",
           icon: FileText,
-          route: "secretary"
+          route: "secretary",
         });
         break;
-        
-      case "Customer Service":
+
+      case "customer_service_personnel":
         portals.push({
           title: "Customer Service Portal",
           description: "Access all areas for customer support",
           icon: Users,
-          route: "customer-service"
+          route: "customer-service",
         });
         break;
-        
-      case "Auditor":
+
+      case "auditor":
         portals.push({
           title: "Auditor Portal",
           description: "Review financial data and generate reports",
           icon: DollarSign,
-          route: "auditor"
+          route: "auditor",
         });
         break;
-        
-        case "Treasurer":
+
+      case "treasurer":
         portals.push({
           title: "Treasurer Portal",
           description: "Manage treasury and financial operations",
           icon: DollarSign,
-          route: "treasurer"
+          route: "treasurer",
         });
         break;
-        
-      case "Admin":
+
+      case "admin":
         portals.push({
           title: "Admin Portal",
           description: "Approve members and manage staff registrations",
           icon: Shield,
-          route: "admin"
+          route: "admin",
         });
         break;
     }
-    
+
     return portals;
   };
 
@@ -187,25 +164,20 @@ const Dashboard = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle>Your Role</CardTitle>
-                  <CardDescription>Current assignment and permissions</CardDescription>
+                  <CardDescription>
+                    Current assignment and permissions
+                  </CardDescription>
                 </div>
-                <Badge variant="secondary">{staffRole.staff_role}</Badge>
+                <Badge variant="secondary">{userRole}</Badge>
               </div>
             </CardHeader>
-            <CardContent>
-              {staffRole.assigned_area && (
-                <p className="text-sm text-muted-foreground">
-                  Assigned Area: <span className="font-semibold">{staffRole.assigned_area}</span>
-                </p>
-              )}
-            </CardContent>
           </Card>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {portals.map((portal) => (
-            <Card 
-              key={portal.route} 
+            <Card
+              key={portal.route}
               className="cursor-pointer hover:shadow-lg transition-shadow"
               onClick={() => navigateToPortal(portal.route)}
             >
@@ -217,12 +189,7 @@ const Dashboard = () => {
                 <CardDescription>{portal.description}</CardDescription>
               </CardHeader>
               <CardContent>
-                {portal.area && (
-                  <p className="text-sm text-muted-foreground">Area: {portal.area}</p>
-                )}
-                <Button className="w-full mt-4">
-                  Access Portal
-                </Button>
+                <Button className="w-full mt-4">Access Portal</Button>
               </CardContent>
             </Card>
           ))}

@@ -4,8 +4,12 @@ const prisma = require("./config/conn.js");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const path = require("path");
-const app = express();
+const auth = require("./middlewares/auth.js");
+require("dotenv").config();
+
 const PORT = process.env.PORT || 3000;
+
+const app = express();
 
 // Middleware example (optional)
 app.use(cookieParser());
@@ -42,9 +46,13 @@ app.get("/api", async (req, res) => {
 });
 
 app.use("/api/auth", require("./routes/authRoutes.js"));
-// app.use("/api/users", require("./routes/userRoutes.js"));
+app.use("/mpesa", require("./routes/stkpush.js"));
+app.use(auth);
+app.use("/api/users", require("./routes/userRoutes.js"));
 
 // Start the server
 server.listen(PORT, () => {
   console.log(`Express server running on port ${PORT}`);
 });
+
+// const uploadDir = "/home/ej/guru.com/uploads";

@@ -3,6 +3,7 @@ const prisma = require("../config/conn.js");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const userHelper = require("../controls/userHelper.js");
+const { signOptions } = require("../config/token.js");
 require("dotenv").config();
 
 const router = express.Router();
@@ -22,7 +23,6 @@ const issueUserSession = async (req, res, user) => {
     // Create the JWT payload
     const payload = {
       id: user.id,
-      name: user.firstName,
       role: user.role,
       status: user.status,
       isVerified: user.isVerified,
@@ -45,18 +45,18 @@ const issueUserSession = async (req, res, user) => {
     // Return the token for frontend apps that use it in headers
     return token;
   } catch (error) {
+    console.log(error);
     throw new Error("Failed to create session");
   }
 };
 
 router.post("/register", async (req, res) => {
-  console.log(req.body);
   try {
     const {
       firstName,
       lastName,
       email,
-      phoneNumber,
+      phone,
       role,
       requestedRole,
       assignedArea,
@@ -83,13 +83,13 @@ router.post("/register", async (req, res) => {
       });
     }
 
-    if (phoneNumber) {
-      // Check if phoneNumber number already exists with this email
-      const existingPhoneNumber = await prisma.user.findUnique({
-        where: { phoneNumber: phoneNumber },
+    if (phone) {
+      // Check if phone number already exists with this email
+      const existingPhone = await prisma.user.findUnique({
+        where: { phone: phone },
       });
 
-      if (existingPhoneNumber) {
+      if (existingPhone) {
         return res.status(400).json({
           error:
             "A staff member with this PhoneNuphoneNumber number already exists.",
@@ -110,7 +110,7 @@ router.post("/register", async (req, res) => {
         lastName,
         email,
         password: password ? hashedPassword : null,
-        phoneNumber: phoneNumber,
+        phone: phone,
         role: role,
         verificationCode,
         requestedRole: requestedRole || null,
@@ -140,7 +140,86 @@ router.post("/register", async (req, res) => {
   }
 });
 
-router.post("login", async (req, res) => {
+router.post("/new-member", async (req, res) => {
+  try {
+    const data = req.body;
+
+    // Check if staff member already exists with this email
+    const existingUser = await prisma.user.findUnique({
+      where: { email: data.email },
+      select: { email: true, isVerified: true },
+    });
+
+    if (existingUser) {
+      return res.status(400).json({
+        error: "A user with this email already exists.",
+      });
+    }
+
+    if (data?.phone) {
+      // Check if phone number already exists with this email
+      const existingPhone = await prisma.user.findUnique({
+        where: { phone: data.phone },
+      });
+
+      if (existingPhone) {
+        return res.status(400).json({
+          error: "A user with this phone number number already exists.",
+        });
+      }
+    }
+
+    const member = await prisma.$transaction(async (tx) => {
+      // 1️⃣ Get and lock counter row
+      const counter = await tx.tnsCounter.findUnique({
+        where: { id: 1 },
+        lock: { mode: "Update" },
+      });
+
+      const nextNumber = (counter?.current ?? 0) + 1;
+      const tnsNumber = `TNS${String(nextNumber).padStart(4, "0")}`;
+
+      let hashedPassword = null;
+      if (typeof password === "string" && password !== "") {
+        hashedPassword = await bcrypt.hash(password, 10);
+      }
+      const verificationCode = generateVerificationCode();
+
+      // 2️⃣ Create member & user
+      await tx.user.create({
+        data: {
+          firstName: data.firstName,
+          lastName: data.lastName,
+          email: data.email,
+          password: hashedPassword,
+          verificationCode,
+          role: "member",
+          phone: data.phone,
+        },
+      });
+      const newMember = await tx.member.create({
+        data: { tnsNumber },
+      });
+
+      // 3️⃣ Only increment counter if member creation succeeds
+      await tx.tnsCounter.update({
+        where: { id: 1 },
+        data: { current: nextNumber },
+      });
+
+      return newMember;
+    });
+
+    res.status(200).json({ member });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      error: "Internal server error. Please try again later.",
+    });
+  }
+});
+
+router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -150,7 +229,7 @@ router.post("login", async (req, res) => {
         .json({ error: "Email and password are required." });
     }
 
-    const user = await prisma.staff.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({ where: { email } });
 
     if (!user) {
       return res.status(404).json({ error: "Invalid email or password." });
@@ -181,6 +260,7 @@ router.post("login", async (req, res) => {
 
     res.status(200).json({ token, role: user.role });
   } catch (err) {
+    console.log(err);
     res.status(500).json({
       error: "Internal server error. Please try again later.",
     });

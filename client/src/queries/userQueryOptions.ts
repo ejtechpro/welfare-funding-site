@@ -1,5 +1,5 @@
 import { fetchCurrentUser } from "@/api/user";
-import { User } from "@/types";
+import type { User } from "@/types";
 import { queryOptions } from "@tanstack/react-query";
 import type { AxiosError } from "axios";
 

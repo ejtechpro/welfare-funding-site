@@ -8,37 +8,27 @@ datasource db {
 }
 
 model User {
-  id                    String                 @id @default(ulid())
-  surname               String?
-  firstName             String
-  lastName              String
-  otherNames            String?
-  email                 String                 @unique
-  gender                String?
-  dateOfBirth           DateTime?
-  phoneNumber           String?                @unique
-  password              String?
-  title                 String?
-  address               Json?
-  employmentDate        DateTime               @default(now())
-  department            String?
-  supervisorId          String?
-  role                  UserRole               @default(member)
-  requestedRole         UserRole?
-  assignedArea          String?
-  approval              UserApproval           @default(pending)
-  qualifications        Json?
-  status                UserStatus             @default(active)
-  verificationCode      String?
-  isVerified            Boolean                @default(false)
-  createdAt             DateTime               @default(now())
-  updatedAt             DateTime               @updatedAt
-  memberApprovals       MemberApproval[]
-  memberNotes           MemberNote[]
-  registrationDocuments RegistrationDocument[]
-  memberStatusHistories MemberStatusHistory[]
-  registrationAuditLogs RegistrationAuditLog[]
-  sessions              Session[]
+  id               String           @id @default(ulid())
+  firstName        String
+  lastName         String
+  email            String           @unique
+  phone            String?          @unique
+  password         String?
+  role             UserRole         @default(user)
+  requestedRole    UserRole?
+  assignedArea     String?
+  approval         Approval         @default(pending)
+  status           UserStatus       @default(active)
+  verificationCode String?
+  isVerified       Boolean          @default(false)
+  createdAt        DateTime         @default(now())
+  sessions         Session[]
+  member           Member? //* User can become a member or not
+  updatedAt        DateTime         @updatedAt
+  profilePicture   String?
+  userPreferences  UserPreference[]
+  approved         MemberApproval[]
+  tasks            Task[] // submitted
 
   @@index([email])
   @@map("users")
@@ -46,9 +36,9 @@ model User {
 
 model Session {
   id           String   @id @default(ulid())
-  sessionId    String   @unique
-  User         User     @relation(fields: [UserId], references: [id], onDelete: Cascade)
-  UserId       String
+  sessionId    String   @db.Text
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String
   deviceId     String?
   deviceInfo   String?
   ipAddress    String?
@@ -57,167 +47,286 @@ model Session {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  @@map("user_session")
+  @@map("user_sessions")
+}
+
+model Contribution {
+  id               String             @id @default(ulid())
+  memberId         String
+  member           Member             @relation(fields: [memberId], references: [id])
+  amount           Float              @default(0.0)
+  contributionType PaymentTypes
+  contributionDate DateTime           @default(now())
+  month            Int?
+  year             Int?
+  projectId        String? // only if type = project
+  caseId           String? // only if type = cases
+  status           ContributionStatus @default(pending)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  @@index([memberId])
+  @@index([projectId])
+  @@index([caseId])
+  @@map("contributions")
+}
+
+model ContactSubmission {
+  id        String        @id @default(ulid())
+  name      String
+  email     String
+  phone     String?
+  subject   String
+  message   String
+  status    ContactStatus @default(pending)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@map("contact_submission")
+}
+
+model Disbursement {
+  id                 String                 @id @default(ulid())
+  memberId           String
+  member             Member                 @relation(fields: [memberId], references: [id])
+  amount             Float
+  reason             String?                @db.Text
+  disbursementType   DisbursementType?
+  status             DisbursementStatus     @default(pending)
+  approvedBy         String? // staff who approved
+  bereavementFormUrl String? // optional URL to document
+  disbursementDate   DateTime // date when it is/will be disbursed
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  documents          DisbursementDocument[]
+
+  @@index([memberId])
+  @@index([status])
+  @@map("disbursements")
+}
+
+model DisbursementDocument {
+  id             String       @id @default(ulid())
+  disbursementId String // foreign key to Disbursement table
+  disbursement   Disbursement @relation(fields: [disbursementId], references: [id], onDelete: Cascade)
+  filename       String
+  fileType       String
+  fileSize       Int
+  fileData       String // could be a URL or base64
+  uploadedBy     String?
+  uploadedAt     DateTime
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([disbursementId])
+  @@map("disbursement_documents")
 }
 
 model Member {
-  id                    String                 @id @default(uuid())
-  title                 String?                @db.VarChar(10)
-  surname               String                 @db.VarChar(100)
-  firstName             String                 @map("first_name") @db.VarChar(100)
-  otherNames            String?                @map("other_names") @db.VarChar(100)
-  gender                String?                @db.VarChar(10)
-  dateOfBirth           DateTime?              @map("date_of_birth") @db.DateTime(0)
-  maritalStatus         String?                @map("marital_status") @db.VarChar(20)
-  phoneNumber           String                 @map("phone_number") @db.VarChar(20)
-  alternativePhone      String?                @map("alternative_phone") @db.VarChar(20)
-  email                 String?                @db.VarChar(255)
-  alternativeEmail      String?                @map("alternative_email") @db.VarChar(255)
-  city                  String                 @db.VarChar(100)
-  state                 String                 @db.VarChar(100)
-  country               String                 @default("Nigeria") @db.VarChar(100)
-  residentialAddress    String?                @map("residential_address") @db.Text
-  officeAddress         String?                @map("office_address") @db.Text
-  idType                String?                @map("id_type") @db.VarChar(50)
-  idNumber              String?                @map("id_number") @db.VarChar(100)
-  idIssueDate           DateTime?              @map("id_issue_date") @db.DateTime(0)
-  idExpiryDate          DateTime?              @map("id_expiry_date") @db.DateTime(0)
-  occupation            String?                @db.VarChar(100)
-  employer              String?                @db.VarChar(255)
-  workPosition          String?                @map("work_position") @db.VarChar(100)
-  nextOfKinName         String?                @map("next_of_kin_name") @db.VarChar(200)
-  nextOfKinRelationship String?                @map("next_of_kin_relationship") @db.VarChar(50)
-  nextOfKinPhone        String?                @map("next_of_kin_phone") @db.VarChar(20)
-  nextOfKinAddress      String?                @map("next_of_kin_address") @db.Text
-  membershipType        String                 @default("regular") @map("membership_type") @db.VarChar(50)
-  registrationDate      DateTime               @default(now()) @map("registration_date") @db.DateTime(0)
-  probationEndDate      DateTime?              @map("probation_end_date") @db.DateTime(0)
-  maturityStatus        String                 @default("probation") @map("maturity_status") @db.VarChar(20)
-  daysToMaturity        Int?                   @map("days_to_maturity")
-  tnsNumber             String?                @unique @map("tns_number") @db.VarChar(50)
-  status                String                 @default("pending") @db.VarChar(20)
-  approvalStatus        String                 @default("pending") @map("approval_status") @db.VarChar(20)
-  rejectionReason       String?                @map("rejection_reason") @db.Text
-  registeredBy          String?                @map("registered_by") @db.Char(36)
-  approvedBy            String?                @map("approved_by") @db.Char(36)
-  approvedAt            DateTime?              @map("approved_at")
-  createdAt             DateTime               @default(now()) @map("created_at")
-  updatedAt             DateTime               @updatedAt @map("updated_at")
-  approvals             MemberApproval[]
-  notes                 MemberNote[]
-  statusHistory         MemberStatusHistory[]
-  auditLogs             RegistrationAuditLog[]
-  documents             RegistrationDocument[]
+  id                    String          @id @default(ulid())
+  tnsNumber             String
+  alternativePhone      String?
+  city                  String
+  state                 String
+  zipCode               String
+  idNumber              String
+  sex                   String
+  maritalStatus         MaritalStatus
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  membershipType        MembershipType  @default(basic)
+  registrationStatus    Approval        @default(pending)
+  paymentStatus         PaymentStatus?
+  maturityStatus        MaturityStatus? // e.g., 'probation', 'active', 'matured'
+  daysToMaturity        Int? // number of days remaining to maturity
+  probationEndDate      DateTime? // end of probation
 
-  @@index([email])
-  @@index([phoneNumber])
-  @@index([tnsNumber])
-  @@index([status])
-  @@index([city, state])
-  @@index([maturityStatus])
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId         String           @unique
+  paymentHistory PaymentHistory[]
+  files          MemberFile[]
+  documents      MemberDocument[]
+  settings       MemberSetting[]
+  beneficiaries  Beneficiary[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  approvals      MemberApproval[]
+  contributions  Contribution[]
+  disbursements  Disbursement[]
+  mpesaPayments  MpesaPayment[]
+  parents        Parent[]
+  spouses        Spouse[]
+
   @@map("members")
 }
 
-model MemberApproval {
-  id            String    @id @default(uuid()) @db.Char(36)
-  memberId      String    @map("member_id") @db.Char(36)
-  approvalLevel Int       @map("approval_level")
-  approverRole  String    @map("approver_role") @db.VarChar(100)
-  approverId    String?   @map("approver_id") @db.Char(36)
-  status        String    @default("pending") @db.VarChar(20)
-  comments      String?   @db.Text
-  approvedAt    DateTime? @map("approved_at")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
-  approver      User?     @relation(fields: [approverId], references: [id])
-  member        Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+model TnsCounter {
+  id      Int @id @default(1)
+  current Int @default(0)
 
-  @@unique([memberId, approvalLevel])
+  @@map("tns_counts")
+}
+
+model Parent {
+  id       String  @id @default(ulid())
+  memberId String
+  name     String?
+  phone    String?
+  altPhone String?
+  area     String?
+  idNumber String?
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@map("member_parents")
+}
+
+model Spouse {
+  id       String  @id @default(ulid())
+  memberId String
+  name     String?
+  phone    String?
+  altPhone String?
+  area     String?
+  sex      String?
+  idNumber String?
+  photoUrl String?
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@map("member_spouses")
+}
+
+model PaymentHistory {
+  id       String @id @default(ulid())
+  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  memberId String
+
+  @@map("payment_history")
+}
+
+model MemberFile {
+  id       String @id @default(ulid())
+  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  memberId String
+
+  @@map("member_files")
+}
+
+model MemberDocument {
+  id       String @id @default(ulid())
+  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  memberId String
+
+  @@map("member_documents")
+}
+
+model UserPreference {
+  id     String @id @default(ulid())
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  @@map("user_preferences")
+}
+
+model MemberSetting {
+  id       String @id @default(ulid())
+  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  memberId String
+
+  @@map("member_settings")
+}
+
+model Beneficiary {
+  id       String @id @default(ulid())
+  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  memberId String
+
+  @@map("beneficiaries")
+}
+
+model MonthlyExpense {
+  id              String          @id @default(ulid())
+  amount          Float
+  expenseCategory ExpenseCategory
+  description     String?         @db.Text
+  approvedBy      String?
+  expenseDate     DateTime // the actual date of the expense
+  monthYear       String // e.g., "2026-02" for easy reporting
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([expenseCategory])
+  @@map("monthly_expenses")
+}
+
+model MpesaPayment {
+  id                 String             @id @default(ulid())
+  memberId           String
+  member             Member             @relation(fields: [memberId], references: [id])
+  amount             Float
+  phoneNumber        String
+  checkoutRequestId  String?
+  merchantRequestId  String?
+  mpesaReceiptNumber String?
+  resultCode         String?
+  resultDesc         String?
+  transactionDate    DateTime?
+  status             MpesaPaymentStatus @default(pending)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
   @@index([memberId])
   @@index([status])
+  @@map("mpesa_payments")
+}
+
+
+model MemberBalance {
+  id String @id @default(ulid())
+
+  @@map("member_balance")
+}
+
+model MemberApproval {
+  id         String   @id @default(ulid())
+  approvedTo Approval @default(approved)
+  comment    String?  @db.Text
+  approver   User     @relation(fields: [approverId], references: [id])
+  approverId String
+  member     Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  memberId   String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
   @@map("member_approvals")
 }
 
-model RegistrationDocument {
-  id           String    @id @default(uuid()) @db.Char(36)
-  memberId     String    @map("member_id") @db.Char(36)
-  documentType String    @map("document_type") @db.VarChar(50)
-  documentName String    @map("document_name") @db.VarChar(255)
-  fileUrl      String    @map("file_url") @db.Text
-  fileSize     Int?      @map("file_size")
-  mimeType     String?   @map("mime_type") @db.VarChar(100)
-  isVerified   Boolean   @default(false) @map("is_verified")
-  verifiedBy   String?   @map("verified_by") @db.Char(36)
-  verifiedAt   DateTime? @map("verified_at")
-  uploadedAt   DateTime  @default(now()) @map("uploaded_at")
-  member       Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  verifier     User?     @relation(fields: [verifiedBy], references: [id])
+model Task {
+  id              String        @id @default(ulid())
+  title           String
+  description     String?       @db.Text
+  data            Json? // optional JSON payload
+  assignedArea    String? // optional, for area assignment
+  submittedBy     User          @relation(fields: [userId], references: [id])
+  submittedToRole String // role responsible for handling
+  taskType        TaskType
+  priority        TaskPriority? // optional
+  status          TaskStatus    @default(pending)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  userId          String
 
-  @@index([memberId])
-  @@index([documentType])
-  @@index([isVerified])
-  @@index([verifiedBy], map: "registration_documents_verified_by_fkey")
-  @@map("registration_documents")
-}
-
-model MemberNote {
-  id          String   @id @default(uuid()) @db.Char(36)
-  memberId    String   @map("member_id") @db.Char(36)
-  noteType    String   @default("general") @map("note_type") @db.VarChar(50)
-  noteContent String   @map("note_content") @db.Text
-  isPrivate   Boolean  @default(true) @map("is_private")
-  createdBy   String   @map("created_by") @db.Char(36)
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-  creator     User     @relation(fields: [createdBy], references: [id])
-  member      Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
-
-  @@index([memberId])
-  @@index([noteType])
-  @@index([createdBy])
-  @@map("member_notes")
-}
-
-model MemberStatusHistory {
-  id             String   @id @default(uuid()) @db.Char(36)
-  memberId       String   @map("member_id") @db.Char(36)
-  previousStatus String?  @map("previous_status") @db.VarChar(50)
-  newStatus      String   @map("new_status") @db.VarChar(50)
-  changeReason   String?  @map("change_reason") @db.Text
-  changedBy      String?  @map("changed_by") @db.Char(36)
-  changedAt      DateTime @default(now()) @map("changed_at")
-  changer        User?    @relation(fields: [changedBy], references: [id])
-  member         Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
-
-  @@index([memberId])
-  @@index([newStatus])
-  @@index([changedBy], map: "member_status_history_changed_by_fkey")
-  @@map("member_status_history")
-}
-
-model RegistrationAuditLog {
-  id          String   @id @default(uuid()) @db.Char(36)
-  memberId    String   @map("member_id") @db.Char(36)
-  action      String   @db.VarChar(50)
-  fieldName   String?  @map("field_name") @db.VarChar(100)
-  oldValue    String?  @map("old_value") @db.Text
-  newValue    String?  @map("new_value") @db.Text
-  performedBy String?  @map("performed_by") @db.Char(36)
-  performedAt DateTime @default(now()) @map("performed_at")
-  ipAddress   String?  @map("ip_address") @db.VarChar(45)
-  userAgent   String?  @map("user_agent") @db.Text
-  member      Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  performer   User?    @relation(fields: [performedBy], references: [id])
-
-  @@index([memberId])
-  @@index([action])
-  @@index([performedAt])
-  @@index([performedBy], map: "registration_audit_log_performed_by_fkey")
-  @@map("registration_audit_log")
+  @@index([assignedArea])
+  @@index([submittedToRole])
+  @@map("tasks")
 }
 
 enum UserRole {
+  super_admin
   admin
+  user
+  member
   advisory_committee
   general_coordinator
   area_coordinator
@@ -226,11 +335,9 @@ enum UserRole {
   organizing_secretary
   treasurer
   auditor
-  staff
-  member
 }
 
-enum UserApproval {
+enum Approval {
   pending
   rejected
   approved
@@ -241,4 +348,102 @@ enum UserStatus {
   inactive
   suspended
   banned
+}
+
+enum MaritalStatus {
+  married
+  single
+  widow
+  widower
+  other
+}
+
+enum ExpenseCategory {
+  utilities
+  salaries
+  rent
+  supplies
+  maintenance
+  other
+}
+
+enum PaymentStatus {
+  paid
+  pending
+}
+
+enum MaturityStatus {
+  probation
+  matured
+  active
+}
+
+enum MembershipType {
+  basic
+  family
+  regular // standard member with basic benefits
+  premium // higher contributions, extra benefits
+  vip // top-tier member, maximum benefits
+  honorary // special recognition, may have reduced contributions
+}
+
+enum PaymentTypes {
+  monthly_contribution
+  cases
+  project
+  registration
+  other
+}
+
+enum ContributionStatus {
+  paid
+  pending
+  failed
+}
+
+enum ContactStatus {
+  pending
+  read
+  resolved
+}
+
+enum DisbursementStatus {
+  pending
+  approved
+  rejected
+  paid
+}
+
+enum DisbursementType {
+  regular
+  emergency
+  bereavement
+  other
+}
+
+enum MpesaPaymentStatus {
+  pending
+  success
+  failed
+}
+
+enum TaskStatus {
+  pending
+  in_progress
+  completed
+  cancelled
+}
+
+enum TaskPriority {
+  low
+  medium
+  high
+  urgent
+}
+
+enum TaskType {
+  general
+  maintenance
+  follow_up
+  other
 }

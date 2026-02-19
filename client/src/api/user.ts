@@ -1,4 +1,4 @@
-import { LoginInput, RegisterPayload } from "@/types";
+import type { LoginInput, RegisterPayload } from "@/types";
 import api from "./api";
 
 export const registerUser = (payload: RegisterPayload) =>
@@ -9,3 +9,5 @@ export const userLogin = (payload: LoginInput) =>
 
 export const fetchCurrentUser = () =>
   api.get("/users/me").then((res) => res.data);
+
+export const logout = () => api.post("/users/logout").then((res) => res.data);
