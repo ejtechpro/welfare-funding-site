@@ -1,8 +1,6 @@
-// routes/members.js
 const express = require("express");
 const multer = require("multer");
 const path = require("path");
-const fs = require("fs");
 const prisma = require("../config/conn.js");
 
 const router = express.Router();
@@ -19,33 +17,100 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-router.post("/signIn", upload.any(), async (req, res) => {
+router.get("/all", async (req, res) => {
   try {
-    // Parse JSON fields
-    const memberInfo = JSON.parse(req.body.memberInfo);
-    const spouseInfo = JSON.parse(req.body.spouseInfo);
-    const children = JSON.parse(req.body.children);
-    const parentsInfo = JSON.parse(req.body.parentsInfo);
-    const transactionId = req.body.transactionId;
-
-    // Files
-    const files = req.files;
-
-    const memberPhoto = files.find((f) => f.fieldname === "memberPhoto");
-    const spousePhoto = files.find((f) => f.fieldname === "spousePhoto");
-
-    const childBirthCerts = files.filter((f) =>
-      f.fieldname.startsWith("childBirthCert_"),
-    );
-
-    console.log(memberInfo);
-    console.log(memberPhoto);
-    console.log(childBirthCerts);
-    console.log(spousePhoto);
-
-    res.json({ success: true });
+    const members = await prisma.member.findMany({
+      include: {
+        user: {
+          select: {
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+            photo: true,
+          },
+        },
+      },
+    });
+    res.status(200).json(members);
   } catch (error) {
-    console.error(error);
+    res.status(500).json({ error: "Internal server error!" });
+  }
+});
+
+router.put("/approve/:memberId", async (req, res) => {
+  try {
+    const { memberId } = req.params;
+    const { userRole, id: userId } = req.user;
+
+    const allowedRoles = ["super_admin", "admin"];
+
+    if (!allowedRoles.includes(userRole)) {
+      return res
+        .status(403)
+        .json({ error: "You don't have permissions to approve a member!" });
+    }
+
+    const tx = await prisma.$transaction(async (tx) => {
+      //Atomic counter increment (NO lock needed)
+      const counter = await tx.tnsCounter.upsert({
+        where: { id: 1 },
+        update: {
+          current: { increment: 1 },
+        },
+        create: {
+          id: 1,
+          current: 1,
+        },
+      });
+
+      const nextNumber = counter.current;
+      const tnsNumber = `TNS${String(nextNumber).padStart(4, "0")}`;
+
+      await tx.member.update({
+        where: { id: memberId },
+        data: {
+          registrationStatus: "approved",
+          // paymentStatus: "paid",
+          tnsNumber: tnsNumber,
+        },
+      });
+      await tx.memberApproval.create({
+        data: {
+          approvalType: "registration",
+          memberId: memberId,
+          approverId: userId,
+        },
+      });
+      return { tnsNumber };
+    });
+
+    res.status(200).json({ success: true, tnsNumber: tx.tnsNumber });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: "Internal server error!" });
+  }
+});
+router.put("/reject/:memberId", async (req, res) => {
+  try {
+    const { memberId } = req.params;
+    const { userRole } = req.user;
+    const allowedRoles = ["super_admin", "admin"];
+
+    if (!allowedRoles.includes(userRole)) {
+      return res
+        .status(403)
+        .json({ error: "You don't have permissions to approve a member!" });
+    }
+
+    await prisma.member.update({
+      where: { id: memberId },
+      data: {
+        registrationStatus: "rejected",
+      },
+    });
+    res.status(200).json({ success: true });
+  } catch (error) {
     res.status(500).json({ error: "Internal server error!" });
   }
 });

@@ -25,7 +25,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
 
 
-  const userRole = user?.role as UserRole;
+  const userRole = user?.userRole as UserRole;
 
   const handleSignOut = async () => {
     try {

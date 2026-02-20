@@ -7,7 +7,10 @@ export const registerUser = (payload: RegisterPayload) =>
 export const userLogin = (payload: LoginInput) =>
   api.post("/auth/login", payload).then((res) => res.data);
 
-export const fetchCurrentUser = () =>
-  api.get("/users/me").then((res) => res.data);
+export const fetchCurrentUser =  () =>
+   api.get("/users/me").then((res) => res.data);
 
 export const logout = () => api.post("/users/logout").then((res) => res.data);
+
+export const fetchStaffs =  () =>
+  api.get("/users/staffs").then((res) => res.data);

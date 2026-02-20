@@ -24,11 +24,11 @@ export const RoleRoute = ({ roles }: RoleRouteProps) => {
     );
 
   if (!user) return <Navigate to="/auth" replace />;
-  console.log(user.role);
+  console.log(user.userRole);
 
   // allow access if user's role is in the allowed roles
-  if (!roles.includes(user.role as any))
+  if (!roles.includes(user.userRole as any))
     return <Navigate to="/dashboard" replace />;
 
-  return <Outlet context={roles} />;
+  return <Outlet />;
 };

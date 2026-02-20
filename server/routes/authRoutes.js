@@ -22,7 +22,7 @@ const issueUserSession = async (req, res, user) => {
     // Create the JWT payload
     const payload = {
       id: user.id,
-      role: user.role,
+      userRole: user.userRole,
       status: user.status,
       isVerified: user.isVerified,
     };
@@ -56,14 +56,14 @@ router.post("/register", async (req, res) => {
       lastName,
       email,
       phone,
-      role,
-      requestedRole,
       assignedArea,
       password,
+      userRole,
+      requestedRole,
     } = req.body;
 
     // Validate required fields
-    if (!firstName || !lastName || !email || !role) {
+    if (!firstName || !lastName || !email || !requestedRole) {
       return res.status(400).json({
         error:
           "Missing required fields. Please provide first name, last name, email",
@@ -86,12 +86,13 @@ router.post("/register", async (req, res) => {
       // Check if phone number already exists with this email
       const existingPhone = await prisma.user.findUnique({
         where: { phone: phone },
+        select: { id: true },
       });
 
       if (existingPhone) {
         return res.status(400).json({
           error:
-            "A staff member with this PhoneNuphoneNumber number already exists.",
+            "A staff member with this phone number already exists.",
         });
       }
     }
@@ -110,7 +111,7 @@ router.post("/register", async (req, res) => {
         email,
         password: password ? hashedPassword : null,
         phone: phone,
-        role: role,
+        userRole: userRole,
         verificationCode,
         requestedRole: requestedRole || null,
         assignedArea: assignedArea || null,
@@ -143,31 +144,6 @@ router.post("/new-member", async (req, res) => {
   try {
     const data = req.body;
 
-    // Check if staff member already exists with this email
-    const existingUser = await prisma.user.findUnique({
-      where: { email: data.email },
-      select: { email: true, isVerified: true },
-    });
-
-    if (existingUser) {
-      return res.status(400).json({
-        error: "A user with this email already exists.",
-      });
-    }
-
-    if (data?.phone) {
-      // Check if phone number already exists with this email
-      const existingPhone = await prisma.user.findUnique({
-        where: { phone: data.phone },
-      });
-
-      if (existingPhone) {
-        return res.status(400).json({
-          error: "A user with this phone number number already exists.",
-        });
-      }
-    }
-
     const member = await prisma.$transaction(async (tx) => {
       // 1️⃣ Get and lock counter row
       const counter = await tx.tnsCounter.findUnique({
@@ -192,7 +168,7 @@ router.post("/new-member", async (req, res) => {
           email: data.email,
           password: hashedPassword,
           verificationCode,
-          role: "member",
+          userRole: "member",
           phone: data.phone,
         },
       });
@@ -257,7 +233,7 @@ router.post("/login", async (req, res) => {
     const token = await issueUserSession(req, res, user);
     await userHelper.createSession(req, user, token);
 
-    res.status(200).json({ token, role: user.role });
+    res.status(200).json({ token, userRole: user.userRole });
   } catch (err) {
     console.log(err);
     res.status(500).json({

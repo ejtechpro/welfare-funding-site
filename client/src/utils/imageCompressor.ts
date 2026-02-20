@@ -1,21 +1,29 @@
 import imageCompression from "browser-image-compression";
 
-export async function processFile(file: File) {
+export async function processFile(file: File): Promise<File> {
   // If PDF → return as-is
   if (file.type === "application/pdf") {
     return file;
   }
 
   try {
-    // If image → compress
     const options = {
       maxSizeMB: 0.5, // ~500KB
       maxWidthOrHeight: 1200,
       useWebWorker: true,
     };
 
-    return await imageCompression(file, options);
+    const compressedBlob = await imageCompression(file, options);
+
+    // Convert Blob back to File, keep original name and type
+    const compressedFile = new File([compressedBlob], file.name, {
+      type: compressedBlob.type,
+    });
+
+    return compressedFile;
   } catch (error) {
-    console.log(error);
+    console.error(error);
+    // fallback: return original file if compression fails
+    return file;
   }
 }

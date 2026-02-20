@@ -1,107 +1,65 @@
-/*
-  Warnings:
+-- CreateTable
+CREATE TABLE `users` (
+    `id` VARCHAR(191) NOT NULL,
+    `firstName` VARCHAR(191) NOT NULL,
+    `lastName` VARCHAR(191) NOT NULL,
+    `email` VARCHAR(191) NOT NULL,
+    `phone` VARCHAR(191) NULL,
+    `password` VARCHAR(191) NULL,
+    `role` ENUM('super_admin', 'admin', 'user', 'member', 'advisory_committee', 'general_coordinator', 'area_coordinator', 'secretary', 'customer_service_personnel', 'organizing_secretary', 'treasurer', 'auditor') NOT NULL DEFAULT 'user',
+    `requestedRole` ENUM('super_admin', 'admin', 'user', 'member', 'advisory_committee', 'general_coordinator', 'area_coordinator', 'secretary', 'customer_service_personnel', 'organizing_secretary', 'treasurer', 'auditor') NULL,
+    `assignedArea` VARCHAR(191) NULL,
+    `approval` ENUM('pending', 'rejected', 'approved') NOT NULL DEFAULT 'pending',
+    `status` ENUM('active', 'inactive', 'suspended', 'banned') NOT NULL DEFAULT 'active',
+    `verificationCode` VARCHAR(191) NULL,
+    `isVerified` BOOLEAN NOT NULL DEFAULT false,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+    `photo` VARCHAR(191) NULL,
 
-  - You are about to drop the `emergency_contacts` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `member_activities` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `member_logs` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `member_payments` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `memberships` table. If the table is not empty, all the data it contains will be lost.
-  - Added the required column `contributionType` to the `contributions` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `memberId` to the `contributions` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `amount` to the `disbursements` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `disbursementDate` to the `disbursements` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `memberId` to the `disbursements` table without a default value. This is not possible if the table is not empty.
+    UNIQUE INDEX `users_email_key`(`email`),
+    UNIQUE INDEX `users_phone_key`(`phone`),
+    INDEX `users_email_idx`(`email`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
-*/
--- DropForeignKey
-ALTER TABLE `beneficiaries` DROP FOREIGN KEY `beneficiaries_memberId_fkey`;
+-- CreateTable
+CREATE TABLE `user_sessions` (
+    `id` VARCHAR(191) NOT NULL,
+    `sessionId` TEXT NOT NULL,
+    `userId` VARCHAR(191) NOT NULL,
+    `deviceId` VARCHAR(191) NULL,
+    `deviceInfo` VARCHAR(191) NULL,
+    `ipAddress` VARCHAR(191) NULL,
+    `location` VARCHAR(191) NULL,
+    `compositeKey` VARCHAR(191) NOT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
 
--- DropForeignKey
-ALTER TABLE `emergency_contacts` DROP FOREIGN KEY `emergency_contacts_memberId_fkey`;
+    UNIQUE INDEX `user_sessions_compositeKey_key`(`compositeKey`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- DropForeignKey
-ALTER TABLE `member_activities` DROP FOREIGN KEY `member_activities_memberId_fkey`;
+-- CreateTable
+CREATE TABLE `contributions` (
+    `id` VARCHAR(191) NOT NULL,
+    `memberId` VARCHAR(191) NOT NULL,
+    `amount` DOUBLE NOT NULL DEFAULT 0.0,
+    `contributionType` ENUM('monthly_contribution', 'cases', 'project', 'registration', 'other') NOT NULL,
+    `contributionDate` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `month` INTEGER NULL,
+    `year` INTEGER NULL,
+    `projectId` VARCHAR(191) NULL,
+    `caseId` VARCHAR(191) NULL,
+    `status` ENUM('paid', 'pending', 'failed') NOT NULL DEFAULT 'pending',
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
 
--- DropForeignKey
-ALTER TABLE `member_approvals` DROP FOREIGN KEY `member_approvals_memberId_fkey`;
-
--- DropForeignKey
-ALTER TABLE `member_documents` DROP FOREIGN KEY `member_documents_memberId_fkey`;
-
--- DropForeignKey
-ALTER TABLE `member_files` DROP FOREIGN KEY `member_files_memberId_fkey`;
-
--- DropForeignKey
-ALTER TABLE `member_logs` DROP FOREIGN KEY `member_logs_memberId_fkey`;
-
--- DropForeignKey
-ALTER TABLE `member_payments` DROP FOREIGN KEY `member_payments_memberId_fkey`;
-
--- DropForeignKey
-ALTER TABLE `member_settings` DROP FOREIGN KEY `member_settings_memberId_fkey`;
-
--- DropForeignKey
-ALTER TABLE `memberships` DROP FOREIGN KEY `memberships_userId_fkey`;
-
--- DropForeignKey
-ALTER TABLE `payment_history` DROP FOREIGN KEY `payment_history_memberId_fkey`;
-
--- DropIndex
-DROP INDEX `beneficiaries_memberId_fkey` ON `beneficiaries`;
-
--- DropIndex
-DROP INDEX `member_approvals_memberId_fkey` ON `member_approvals`;
-
--- DropIndex
-DROP INDEX `member_documents_memberId_fkey` ON `member_documents`;
-
--- DropIndex
-DROP INDEX `member_files_memberId_fkey` ON `member_files`;
-
--- DropIndex
-DROP INDEX `member_settings_memberId_fkey` ON `member_settings`;
-
--- DropIndex
-DROP INDEX `payment_history_memberId_fkey` ON `payment_history`;
-
--- AlterTable
-ALTER TABLE `contributions` ADD COLUMN `amount` DOUBLE NOT NULL DEFAULT 0.0,
-    ADD COLUMN `caseId` VARCHAR(191) NULL,
-    ADD COLUMN `contributionDate` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    ADD COLUMN `contributionType` ENUM('monthly_contribution', 'cases', 'project', 'registration', 'other') NOT NULL,
-    ADD COLUMN `memberId` VARCHAR(191) NOT NULL,
-    ADD COLUMN `month` INTEGER NULL,
-    ADD COLUMN `projectId` VARCHAR(191) NULL,
-    ADD COLUMN `status` ENUM('paid', 'pending', 'failed') NOT NULL DEFAULT 'pending',
-    ADD COLUMN `year` INTEGER NULL;
-
--- AlterTable
-ALTER TABLE `disbursements` ADD COLUMN `amount` DOUBLE NOT NULL,
-    ADD COLUMN `approvedBy` VARCHAR(191) NULL,
-    ADD COLUMN `bereavementFormUrl` VARCHAR(191) NULL,
-    ADD COLUMN `disbursementDate` DATETIME(3) NOT NULL,
-    ADD COLUMN `disbursementType` ENUM('regular', 'emergency', 'bereavement', 'other') NULL,
-    ADD COLUMN `memberId` VARCHAR(191) NOT NULL,
-    ADD COLUMN `reason` TEXT NULL,
-    ADD COLUMN `status` ENUM('pending', 'approved', 'rejected', 'paid') NOT NULL DEFAULT 'pending';
-
--- AlterTable
-ALTER TABLE `users` ADD COLUMN `profilePicture` VARCHAR(191) NULL;
-
--- DropTable
-DROP TABLE `emergency_contacts`;
-
--- DropTable
-DROP TABLE `member_activities`;
-
--- DropTable
-DROP TABLE `member_logs`;
-
--- DropTable
-DROP TABLE `member_payments`;
-
--- DropTable
-DROP TABLE `memberships`;
+    INDEX `contributions_memberId_idx`(`memberId`),
+    INDEX `contributions_projectId_idx`(`projectId`),
+    INDEX `contributions_caseId_idx`(`caseId`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
 CREATE TABLE `contact_submission` (
@@ -115,6 +73,25 @@ CREATE TABLE `contact_submission` (
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `disbursements` (
+    `id` VARCHAR(191) NOT NULL,
+    `memberId` VARCHAR(191) NOT NULL,
+    `amount` DOUBLE NOT NULL,
+    `reason` TEXT NULL,
+    `disbursementType` ENUM('regular', 'emergency', 'bereavement', 'other') NULL,
+    `status` ENUM('pending', 'approved', 'rejected', 'paid') NOT NULL DEFAULT 'pending',
+    `approvedBy` VARCHAR(191) NULL,
+    `bereavementFormUrl` VARCHAR(191) NULL,
+    `disbursementDate` DATETIME(3) NOT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    INDEX `disbursements_memberId_idx`(`memberId`),
+    INDEX `disbursements_status_idx`(`status`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -138,27 +115,39 @@ CREATE TABLE `disbursement_documents` (
 -- CreateTable
 CREATE TABLE `members` (
     `id` VARCHAR(191) NOT NULL,
-    `tnsNumber` VARCHAR(191) NOT NULL,
+    `tnsNumber` VARCHAR(191) NULL,
     `alternativePhone` VARCHAR(191) NULL,
-    `city` VARCHAR(191) NOT NULL,
-    `state` VARCHAR(191) NOT NULL,
-    `zipCode` VARCHAR(191) NOT NULL,
+    `country` VARCHAR(191) NOT NULL,
+    `areaOfResidence` VARCHAR(191) NOT NULL,
+    `state` VARCHAR(191) NULL,
+    `zipCode` VARCHAR(191) NULL,
     `idNumber` VARCHAR(191) NOT NULL,
     `sex` VARCHAR(191) NOT NULL,
-    `maritalStatus` ENUM('married', 'single', 'widow', 'widower', 'other') NOT NULL,
+    `maritalStatus` ENUM('married', 'single', 'divorced', 'widowed') NOT NULL,
     `emergencyContactName` VARCHAR(191) NULL,
     `emergencyContactPhone` VARCHAR(191) NULL,
-    `membershipType` ENUM('basic', 'family', 'regular', 'premium', 'vip', 'honorary') NOT NULL DEFAULT 'basic',
+    `membershipType` ENUM('basic', 'individual', 'family') NOT NULL DEFAULT 'basic',
     `registrationStatus` ENUM('pending', 'rejected', 'approved') NOT NULL DEFAULT 'pending',
     `paymentStatus` ENUM('paid', 'pending') NULL,
     `maturityStatus` ENUM('probation', 'matured', 'active') NULL,
     `daysToMaturity` INTEGER NULL,
     `probationEndDate` DATETIME(3) NULL,
+    `mpesaPaymentPeference` VARCHAR(191) NULL,
     `userId` VARCHAR(191) NOT NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
+    UNIQUE INDEX `members_tnsNumber_key`(`tnsNumber`),
+    UNIQUE INDEX `members_idNumber_key`(`idNumber`),
     UNIQUE INDEX `members_userId_key`(`userId`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `tns_counts` (
+    `id` INTEGER NOT NULL DEFAULT 1,
+    `current` INTEGER NOT NULL DEFAULT 0,
+
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -169,7 +158,7 @@ CREATE TABLE `member_parents` (
     `name` VARCHAR(191) NULL,
     `phone` VARCHAR(191) NULL,
     `altPhone` VARCHAR(191) NULL,
-    `area` VARCHAR(191) NULL,
+    `areaOfResidence` VARCHAR(191) NULL,
     `idNumber` VARCHAR(191) NULL,
 
     PRIMARY KEY (`id`)
@@ -182,10 +171,70 @@ CREATE TABLE `member_spouses` (
     `name` VARCHAR(191) NULL,
     `phone` VARCHAR(191) NULL,
     `altPhone` VARCHAR(191) NULL,
-    `area` VARCHAR(191) NULL,
+    `areaOfResidence` VARCHAR(191) NULL,
     `sex` VARCHAR(191) NULL,
     `idNumber` VARCHAR(191) NULL,
-    `photoUrl` VARCHAR(191) NULL,
+    `photo` VARCHAR(191) NULL,
+
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `member_children` (
+    `id` VARCHAR(191) NOT NULL,
+    `memberId` VARCHAR(191) NOT NULL,
+    `name` VARCHAR(191) NOT NULL,
+    `dob` VARCHAR(191) NOT NULL,
+    `age` VARCHAR(191) NOT NULL,
+    `birthCertificate` VARCHAR(191) NULL,
+
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `payment_history` (
+    `id` VARCHAR(191) NOT NULL,
+    `memberId` VARCHAR(191) NOT NULL,
+
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `member_files` (
+    `id` VARCHAR(191) NOT NULL,
+    `memberId` VARCHAR(191) NOT NULL,
+
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `member_documents` (
+    `id` VARCHAR(191) NOT NULL,
+    `memberId` VARCHAR(191) NOT NULL,
+
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `user_preferences` (
+    `id` VARCHAR(191) NOT NULL,
+    `userId` VARCHAR(191) NOT NULL,
+
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `member_settings` (
+    `id` VARCHAR(191) NOT NULL,
+    `memberId` VARCHAR(191) NOT NULL,
+
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `beneficiaries` (
+    `id` VARCHAR(191) NOT NULL,
+    `memberId` VARCHAR(191) NOT NULL,
 
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -235,6 +284,19 @@ CREATE TABLE `member_balance` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
+CREATE TABLE `member_approvals` (
+    `id` VARCHAR(191) NOT NULL,
+    `approvalType` ENUM('registration', 'payment', 'loan', 'withdrawal', 'benefit', 'penalty', 'profile_update', 'suspension', 'termination') NOT NULL,
+    `comment` TEXT NULL,
+    `approverId` VARCHAR(191) NOT NULL,
+    `memberId` VARCHAR(191) NOT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
 CREATE TABLE `tasks` (
     `id` VARCHAR(191) NOT NULL,
     `title` VARCHAR(191) NOT NULL,
@@ -254,20 +316,8 @@ CREATE TABLE `tasks` (
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- CreateIndex
-CREATE INDEX `contributions_memberId_idx` ON `contributions`(`memberId`);
-
--- CreateIndex
-CREATE INDEX `contributions_projectId_idx` ON `contributions`(`projectId`);
-
--- CreateIndex
-CREATE INDEX `contributions_caseId_idx` ON `contributions`(`caseId`);
-
--- CreateIndex
-CREATE INDEX `disbursements_memberId_idx` ON `disbursements`(`memberId`);
-
--- CreateIndex
-CREATE INDEX `disbursements_status_idx` ON `disbursements`(`status`);
+-- AddForeignKey
+ALTER TABLE `user_sessions` ADD CONSTRAINT `user_sessions_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `contributions` ADD CONSTRAINT `contributions_memberId_fkey` FOREIGN KEY (`memberId`) REFERENCES `members`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -288,6 +338,9 @@ ALTER TABLE `member_parents` ADD CONSTRAINT `member_parents_memberId_fkey` FOREI
 ALTER TABLE `member_spouses` ADD CONSTRAINT `member_spouses_memberId_fkey` FOREIGN KEY (`memberId`) REFERENCES `members`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE `member_children` ADD CONSTRAINT `member_children_memberId_fkey` FOREIGN KEY (`memberId`) REFERENCES `members`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE `payment_history` ADD CONSTRAINT `payment_history_memberId_fkey` FOREIGN KEY (`memberId`) REFERENCES `members`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -297,6 +350,9 @@ ALTER TABLE `member_files` ADD CONSTRAINT `member_files_memberId_fkey` FOREIGN K
 ALTER TABLE `member_documents` ADD CONSTRAINT `member_documents_memberId_fkey` FOREIGN KEY (`memberId`) REFERENCES `members`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE `user_preferences` ADD CONSTRAINT `user_preferences_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE `member_settings` ADD CONSTRAINT `member_settings_memberId_fkey` FOREIGN KEY (`memberId`) REFERENCES `members`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -304,6 +360,9 @@ ALTER TABLE `beneficiaries` ADD CONSTRAINT `beneficiaries_memberId_fkey` FOREIGN
 
 -- AddForeignKey
 ALTER TABLE `mpesa_payments` ADD CONSTRAINT `mpesa_payments_memberId_fkey` FOREIGN KEY (`memberId`) REFERENCES `members`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `member_approvals` ADD CONSTRAINT `member_approvals_approverId_fkey` FOREIGN KEY (`approverId`) REFERENCES `users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `member_approvals` ADD CONSTRAINT `member_approvals_memberId_fkey` FOREIGN KEY (`memberId`) REFERENCES `members`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;

@@ -87,5 +87,15 @@ router.post("/logout-other-devices", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+router.get("/staffs", async (req, res) => {
+  try {
+    const staffs = await prisma.user.findMany({
+      where: { userRole: { notIn: ["member"] } },
+    });
+    res.status(200).json(staffs);
+  } catch (error) {
+    res.status(500).json({ error: "Internal server error!" });
+  }
+});
 
 module.exports = router;

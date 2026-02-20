@@ -1,5 +1,5 @@
-import { fetchCurrentUser } from "@/api/user";
-import type { User } from "@/types";
+import { fetchCurrentUser, fetchStaffs } from "@/api/user";
+import type { Staff, User } from "@/types";
 import { queryOptions } from "@tanstack/react-query";
 import type { AxiosError } from "axios";
 
@@ -25,8 +25,8 @@ export const currentUserOptions = () =>
     },
   });
 
-export const getUsersOptions = () =>
-  queryOptions<User[]>({
-    queryKey: ["users"],
-    // queryFn: getUsers,
+export const getStaffOptions = () =>
+  queryOptions<Staff[]>({
+    queryKey: ["staffs"],
+    queryFn: ()=> fetchStaffs(),
   });

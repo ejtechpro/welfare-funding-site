@@ -28,7 +28,8 @@ import axios from "axios";
 import { processFile } from "@/utils/imageCompressor";
 
 interface MemberInfo {
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
   idNumber: string;
   phone: string;
@@ -70,13 +71,13 @@ interface ParentsInfo {
   parent2: ParentInfo;
 }
 
-
 const MultiStepRegistration = () => {
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(1);
 
   const [memberInfo, setMemberInfo] = useState<MemberInfo>({
-    name: "",
+    firstName: "",
+    lastName: "",
     email: "",
     idNumber: "",
     phone: "",
@@ -119,6 +120,9 @@ const MultiStepRegistration = () => {
   const [transactionId, setTransactionId] = useState("");
 
   const totalSteps = 6;
+  // Check if phone number format is valid
+  const phoneRegex =
+    /^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/;
 
   // Validation functions
   const validateStep = (step: number): boolean => {
@@ -135,10 +139,18 @@ const MultiStepRegistration = () => {
         return true;
 
       case 2:
-        if (!memberInfo.name?.trim()) {
+        if (!memberInfo.firstName?.trim()) {
           toast({
             title: "Validation Error",
-            description: "Full name is required",
+            description: "First name is required",
+            variant: "destructive",
+          });
+          return false;
+        }
+        if (!memberInfo.lastName?.trim()) {
+          toast({
+            title: "Validation Error",
+            description: "Last name is required",
             variant: "destructive",
           });
           return false;
@@ -175,6 +187,27 @@ const MultiStepRegistration = () => {
           });
           return false;
         }
+
+        if (!phoneRegex.test(memberInfo.phone.replace(/\s/g, ""))) {
+          toast({
+            title: "Validation Error",
+            description:
+              "Please enter a valid phone number (e.g., 123-456-7890, +1234567890)",
+            variant: "destructive",
+          });
+          return false;
+        }
+        if (memberInfo.altPhone != "") {
+          if (!phoneRegex.test(memberInfo.altPhone.replace(/\s/g, ""))) {
+            toast({
+              title: "Validation Error",
+              description:
+                "Please enter a valid alternative phone number (e.g., 123-456-7890, +1234567890)",
+              variant: "destructive",
+            });
+            return false;
+          }
+        }
         if (!memberInfo.sex) {
           toast({
             title: "Validation Error",
@@ -210,7 +243,7 @@ const MultiStepRegistration = () => {
         return true;
 
       case 3:
-        if (memberInfo.maritalStatus === "Married") {
+        if (memberInfo.maritalStatus === "married") {
           if (!spouseInfo.name?.trim()) {
             toast({
               title: "Validation Error",
@@ -227,6 +260,7 @@ const MultiStepRegistration = () => {
             });
             return false;
           }
+
           if (!spouseInfo.phone?.trim()) {
             toast({
               title: "Validation Error",
@@ -234,6 +268,28 @@ const MultiStepRegistration = () => {
               variant: "destructive",
             });
             return false;
+          }
+
+          if (!phoneRegex.test(spouseInfo.phone.replace(/\s/g, ""))) {
+            toast({
+              title: "Validation Error",
+              description:
+                "Please enter a valid phone number (e.g., 123-456-7890, +1234567890)",
+              variant: "destructive",
+            });
+            return false;
+          }
+
+          if (spouseInfo.altPhone != "") {
+            if (!phoneRegex.test(spouseInfo.altPhone.replace(/\s/g, ""))) {
+              toast({
+                title: "Validation Error",
+                description:
+                  "Please enter a valid alternative phone number (e.g., 123-456-7890, +1234567890)",
+                variant: "destructive",
+              });
+              return false;
+            }
           }
           if (!spouseInfo.sex) {
             toast({
@@ -289,6 +345,25 @@ const MultiStepRegistration = () => {
             });
             return false;
           }
+
+          if (!/^\d+$/.test(child.age.trim())) {
+            toast({
+              title: "Validation Error",
+              description: `Child ${i + 1} age must contain only digits`,
+              variant: "destructive",
+            });
+            return false;
+          }
+
+          const age = parseInt(child.age.trim(), 10);
+          if (age < 0 || age > 120) {
+            toast({
+              title: "Validation Error",
+              description: `Child ${i + 1} age must be between 0 and 120`,
+              variant: "destructive",
+            });
+            return false;
+          }
           if (!child.birthCertificate) {
             toast({
               title: "Validation Error",
@@ -324,6 +399,30 @@ const MultiStepRegistration = () => {
             variant: "destructive",
           });
           return false;
+        }
+
+        if (!phoneRegex.test(parentsInfo.parent1.altPhone.replace(/\s/g, ""))) {
+          toast({
+            title: "Validation Error",
+            description:
+              "Please enter a valid alternative phone number (e.g., 123-456-7890, +1234567890)",
+            variant: "destructive",
+          });
+          return false;
+        }
+
+        if (parentsInfo.parent1.altPhone != "") {
+          if (
+            !phoneRegex.test(parentsInfo.parent1.altPhone.replace(/\s/g, ""))
+          ) {
+            toast({
+              title: "Validation Error",
+              description:
+                "Please enter a valid alternative phone number (e.g., 123-456-7890, +1234567890)",
+              variant: "destructive",
+            });
+            return false;
+          }
         }
         if (!parentsInfo.parent1.areaOfResidence?.trim()) {
           toast({
@@ -406,7 +505,8 @@ const MultiStepRegistration = () => {
     // Reset form
     setCurrentStep(1);
     setMemberInfo({
-      name: "",
+      firstName: "",
+      lastName: "",
       email: "",
       idNumber: "",
       phone: "",
@@ -458,7 +558,7 @@ const MultiStepRegistration = () => {
 
     // Member photo
     if (data.memberInfo.photo) {
-      const memberPhoto = await processFile(data.memberInfo.photo);
+      const memberPhoto = await data.memberInfo.photo;
       if (memberPhoto) formData.append("memberPhoto", memberPhoto);
     }
 
@@ -468,24 +568,23 @@ const MultiStepRegistration = () => {
       if (spousePhoto) formData.append("spousePhoto", spousePhoto);
     }
 
-    // Children files
     for (let i = 0; i < data.children.length; i++) {
       const birthCert = data.children[i].birthCertificate;
-      if (birthCert) {
+
+      if (birthCert instanceof File) {
         const certFile = await processFile(birthCert);
-        if (certFile) formData.append("childBirthCerts", certFile);
+        formData.append(`childBirthCert_${i}`, certFile);
       }
     }
 
     const res = await axios.post(
-      `http://localhost:3000/api/members/signIn`,
+      `http://localhost:3000/api/member-auth/new`,
       formData,
       {
         headers: {
           "Content-Type": "multipart/form-data",
         },
         withCredentials: true,
-       
       },
     );
 
@@ -531,7 +630,6 @@ const MultiStepRegistration = () => {
       mutation.mutate();
     }
   };
-
 
   const renderStepContent = () => {
     switch (currentStep) {
@@ -613,14 +711,26 @@ const MultiStepRegistration = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="memberName">Full Name *</Label>
+                <Label htmlFor="memberFirstName">First Name *</Label>
                 <Input
-                  id="memberName"
-                  value={memberInfo.name}
+                  id="memberFirstName"
+                  value={memberInfo.firstName}
                   onChange={(e) =>
-                    setMemberInfo({ ...memberInfo, name: e.target.value })
+                    setMemberInfo({ ...memberInfo, firstName: e.target.value })
                   }
-                  placeholder="Enter your full name"
+                  placeholder="Enter your first name"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="memberLastName">Last Name *</Label>
+                <Input
+                  id="memberLastName"
+                  value={memberInfo.lastName}
+                  onChange={(e) =>
+                    setMemberInfo({ ...memberInfo, lastName: e.target.value })
+                  }
+                  placeholder="Enter your last name"
                   required
                 />
               </div>
@@ -1322,7 +1432,6 @@ const MultiStepRegistration = () => {
             community
           </p>
         </div>
-        <Button onClick={() => mutation.mutate()}>SEND</Button>
         <div className="max-w-4xl mx-auto">
           {/* Progress Indicator */}
           <div className="mb-8">

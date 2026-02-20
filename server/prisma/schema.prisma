@@ -14,10 +14,10 @@ model User {
   email            String           @unique
   phone            String?          @unique
   password         String?
-  role             UserRole         @default(user)
+  userRole         UserRole         @default(user)
   requestedRole    UserRole?
   assignedArea     String?
-  approval         Approval         @default(pending)
+  approval         UserApproval     @default(pending)
   status           UserStatus       @default(active)
   verificationCode String?
   isVerified       Boolean          @default(false)
@@ -25,7 +25,7 @@ model User {
   sessions         Session[]
   member           Member? //* User can become a member or not
   updatedAt        DateTime         @updatedAt
-  profilePicture   String?
+  photo            String?
   userPreferences  UserPreference[]
   approved         MemberApproval[]
   tasks            Task[] // submitted
@@ -124,22 +124,24 @@ model DisbursementDocument {
 
 model Member {
   id                    String          @id @default(ulid())
-  tnsNumber             String
+  tnsNumber             String?         @unique
   alternativePhone      String?
-  city                  String
-  state                 String
-  zipCode               String
-  idNumber              String
+  country               String
+  areaOfResidence       String
+  state                 String?
+  zipCode               String?
+  idNumber              String          @unique
   sex                   String
   maritalStatus         MaritalStatus
   emergencyContactName  String?
   emergencyContactPhone String?
   membershipType        MembershipType  @default(basic)
-  registrationStatus    Approval        @default(pending)
+  registrationStatus    UserApproval    @default(pending)
   paymentStatus         PaymentStatus?
-  maturityStatus        MaturityStatus? // e.g., 'probation', 'active', 'matured'
+  maturityStatus        MaturityStatus?
   daysToMaturity        Int? // number of days remaining to maturity
   probationEndDate      DateTime? // end of probation
+  mpesaPaymentReference String?
 
   user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId         String           @unique
@@ -156,6 +158,7 @@ model Member {
   mpesaPayments  MpesaPayment[]
   parents        Parent[]
   spouses        Spouse[]
+  children       Child[]
 
   @@map("members")
 }
@@ -168,13 +171,13 @@ model TnsCounter {
 }
 
 model Parent {
-  id       String  @id @default(ulid())
-  memberId String
-  name     String?
-  phone    String?
-  altPhone String?
-  area     String?
-  idNumber String?
+  id              String  @id @default(ulid())
+  memberId        String
+  name            String?
+  phone           String?
+  altPhone        String?
+  areaOfResidence String?
+  idNumber        String?
 
   member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
 
@@ -182,19 +185,30 @@ model Parent {
 }
 
 model Spouse {
-  id       String  @id @default(ulid())
-  memberId String
-  name     String?
-  phone    String?
-  altPhone String?
-  area     String?
-  sex      String?
-  idNumber String?
-  photoUrl String?
-
-  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  id              String  @id @default(ulid())
+  memberId        String
+  name            String?
+  phone           String?
+  altPhone        String?
+  areaOfResidence String?
+  sex             String?
+  idNumber        String?
+  photo           String?
+  member          Member  @relation(fields: [memberId], references: [id], onDelete: Cascade)
 
   @@map("member_spouses")
+}
+
+model Child {
+  id               String  @id @default(ulid())
+  memberId         String
+  name             String
+  dob              String
+  age              String
+  birthCertificate String?
+  member           Member  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@map("member_children")
 }
 
 model PaymentHistory {
@@ -281,7 +295,6 @@ model MpesaPayment {
   @@map("mpesa_payments")
 }
 
-
 model MemberBalance {
   id String @id @default(ulid())
 
@@ -289,15 +302,15 @@ model MemberBalance {
 }
 
 model MemberApproval {
-  id         String   @id @default(ulid())
-  approvedTo Approval @default(approved)
-  comment    String?  @db.Text
-  approver   User     @relation(fields: [approverId], references: [id])
-  approverId String
-  member     Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  memberId   String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id           String       @id @default(ulid())
+  approvalType ApprovalType
+  comment      String?      @db.Text
+  approver     User?        @relation(fields: [approverId], references: [id], onDelete: SetNull)
+  approverId   String?
+  member       Member       @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  memberId     String
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 
   @@map("member_approvals")
 }
@@ -337,10 +350,22 @@ enum UserRole {
   auditor
 }
 
-enum Approval {
+enum UserApproval {
   pending
   rejected
   approved
+}
+
+enum ApprovalType {
+  registration
+  payment
+  loan
+  withdrawal
+  benefit
+  penalty
+  profile_update
+  suspension
+  termination
 }
 
 enum UserStatus {
@@ -353,9 +378,8 @@ enum UserStatus {
 enum MaritalStatus {
   married
   single
-  widow
-  widower
-  other
+  divorced
+  widowed
 }
 
 enum ExpenseCategory {
@@ -375,16 +399,12 @@ enum PaymentStatus {
 enum MaturityStatus {
   probation
   matured
-  active
 }
 
 enum MembershipType {
   basic
+  individual
   family
-  regular // standard member with basic benefits
-  premium // higher contributions, extra benefits
-  vip // top-tier member, maximum benefits
-  honorary // special recognition, may have reduced contributions
 }
 
 enum PaymentTypes {

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Menu, X, Users, Phone, FileText, User } from 'lucide-react';
+import { Menu, X,  User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -14,10 +14,10 @@ const Header = () => {
     { name: 'Requirements', href: '#requirements' },
     { name: 'Rights & Responsibilities', href: '#rights' },
     { name: 'Register as a Member', href: '#register' },
-    { name: 'Register as an Admin', href: '/adminregistration', route: true },
+    // { name: 'Register as an Admin', href: '/adminregistration', route: true },
     // { name: 'Registered Members', href: '/viewmems', route: true },
     { name: user ? 'Dashboard' : 'Staff Portal', href: user ? '/dashboard' : '/auth', route: true },
-    { name: 'Portal Login', href: '/portal-login', route: true }
+    // { name: 'Portal Login', href: '/portal-login', route: true }
   ];
 
   const handleNavigation = (item: { href: string; route?: boolean }) => {

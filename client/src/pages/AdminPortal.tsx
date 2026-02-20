@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { useRoleGuard } from "@/hooks/useRoleGuard";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -70,6 +69,7 @@ import {
   Save,
   X,
   UserMinus,
+  Lock,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
@@ -84,18 +84,7 @@ import {
   ChartLegend,
   ChartLegendContent,
 } from "@/components/ui/chart";
-import {
-  PieChart as RechartsPieChart,
-  Pie,
-  Cell,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  ResponsiveContainer,
-  LineChart,
-  Line,
-} from "recharts";
+import { PieChart as RechartsPieChart, Pie, Cell } from "recharts";
 import { ManualPaymentEntry } from "@/components/ManualPaymentEntry";
 import { DisbursementForm } from "@/components/DisbursementForm";
 import { EnhancedDisbursementForm } from "@/components/EnhancedDisbursementForm";
@@ -109,6 +98,11 @@ import {
   setupMemberDeletionSync,
   type MemberDeletionEvent,
 } from "../utils/memberDeletionSync";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { getMembersOptions } from "@/queries/memberQueryOptions";
+import { getStaffOptions } from "@/queries/userQueryOptions";
+import { memberApproval } from "@/api/member";
+import type { Staff } from "@/types";
 
 interface MemberRegistration {
   id: string;
@@ -144,7 +138,7 @@ interface StaffRegistration {
   lastName: string;
   email: string;
   phone: string;
-  staff_role: string;
+  userRole: string;
   assigned_area?: string;
   pending: string;
   created_at: string;
@@ -197,21 +191,16 @@ interface MonthlyExpense {
 
 const AdminPortal = () => {
   const { user, signOut } = useAuth();
-  const isAuthorized = true;
-  const roleLoading = false;
   const navigate = useNavigate();
-  const [pendingMembers, setPendingMembers] = useState<MemberRegistration[]>(
-    [],
-  );
-  const [allMembers, setAllMembers] = useState<MemberRegistration[]>([]);
-  const [pendingStaff, setPendingStaff] = useState<StaffRegistration[]>([]);
+  const queryClient = useQueryClient();
+
   const [allStaff, setAllStaff] = useState<StaffRegistration[]>([]);
   const [mpesaPayments, setMpesaPayments] = useState<MPESAPayment[]>([]);
   const [contributions, setContributions] = useState<Contribution[]>([]);
   const [disbursements, setDisbursements] = useState<Disbursement[]>([]);
   const [monthlyExpenses, setMonthlyExpenses] = useState<MonthlyExpense[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedStaff, setSelectedStaff] = useState<StaffRegistration | null>(
+  const [selectedStaff, setSelectedStaff] = useState<Partial<Staff> | null>(
     null,
   );
   const [portalPassword, setPortalPassword] = useState("");
@@ -231,6 +220,29 @@ const AdminPortal = () => {
   const [editFormData, setEditFormData] = useState<Partial<MemberRegistration>>(
     {},
   );
+
+  //!QUERIES
+  const { data: members = [], isLoading: loadingMembers } =
+    useQuery(getMembersOptions());
+  const pendingMembers = useMemo(
+    () => members.filter((m) => m.registrationStatus === "pending"),
+    [members],
+  );
+  const staffs = useQuery(getStaffOptions());
+  const pendingStaff = useMemo(() => {
+    if (staffs.data) {
+      return staffs?.data.filter((s) => s.approval === "pending");
+    }
+    return [];
+  }, [staffs]);
+  const approvedStaff = useMemo(() => {
+    if (staffs.data) {
+      return staffs?.data.filter(
+        (s) => s.userRole != "user" && s.approval === "approved",
+      );
+    }
+    return [];
+  }, [staffs]);
 
   // Group MPESA payments by member to show contributions under one row per member
   const groupedMpesaPayments = useMemo(() => {
@@ -277,11 +289,8 @@ const AdminPortal = () => {
   }, [mpesaPayments]);
 
   useEffect(() => {
-    // Role guard handles authentication and authorization
-    if (isAuthorized && !roleLoading) {
-      fetchPendingRegistrations();
-    }
-  }, [isAuthorized, roleLoading]);
+    fetchPendingRegistrations();
+  }, []);
 
   // Set up cross-portal member deletion synchronization
   useEffect(() => {
@@ -444,19 +453,19 @@ const AdminPortal = () => {
     };
   }, []);
 
-  // Role-based access is now handled by useRoleGuard
+  // Role-based access is now handled by routes
 
   const fetchPendingRegistrations = async () => {
     setLoading(true);
     try {
       // Fetch pending member registrations
-      const { data: members, error: membersError } = await supabase
-        .from("membership_registrations")
-        .select("*")
-        .eq("registration_status", "pending")
-        .order("created_at", { ascending: false });
+      // const { data: members, error: membersError } = await supabase
+      //   .from("membership_registrations")
+      //   .select("*")
+      //   .eq("registration_status", "pending")
+      //   .order("created_at", { ascending: false });
 
-      if (membersError) throw membersError;
+      // if (membersError) throw membersError;
 
       // Fetch all member registrations
       const { data: allMembersData, error: allMembersError } = await supabase
@@ -534,9 +543,9 @@ const AdminPortal = () => {
 
       if (expensesError) throw expensesError;
 
-      setPendingMembers(members || []);
-      setAllMembers(allMembersData || []);
-      setPendingStaff(staff || []);
+      // setPendingMembers(members || []);
+      // setAllMembers(allMembersData || []);
+      // setPendingStaff(staff || []);
       setAllStaff(allStaffData || []);
       setMpesaPayments(mpesaWithMembers || []);
       setContributions(contributionsData || []);
@@ -550,78 +559,32 @@ const AdminPortal = () => {
     }
   };
 
-  const approveMember = async (memberId: string) => {
-    try {
-      // Get member details before approval for logging and feedback
-      const { data: memberData, error: fetchError } = await supabase
-        .from("membership_registrations")
-        .select("firstName, lastName, email, tns_number")
-        .eq("id", memberId)
-        .single();
+  const approveMember = useMutation({
+    mutationFn: (memberId: string) => memberApproval(memberId),
 
-      if (fetchError) throw fetchError;
-
-      console.log(
-        `Approving member: ${memberData?.firstName} ${memberData?.lastName} (ID: ${memberId})`,
-      );
-
-      // Approve the member - TNS number is already auto-assigned by database trigger
-      const { error: updateError, count } = await supabase
-        .from("membership_registrations")
-        .update({
-          registration_status: "approved",
-          payment_status: "paid",
-          updated_at: new Date().toISOString(), // Ensure updated timestamp
-        })
-        .eq("id", memberId)
-        .select();
-
-      if (updateError) throw updateError;
-
-      if (count === 0) {
-        throw new Error(
-          "No member was updated - member may have already been processed",
-        );
-      }
-
-      console.log(
-        `Successfully approved member: ${memberData?.firstName} ${memberData?.lastName}`,
-      );
-
-      // Show success message with member details
-      toast.success(
-        `✅ Member ${memberData?.firstName} ${memberData?.lastName} approved successfully!`,
-        {
-          description: `TNS Number: ${memberData?.tns_number} • Status: Active Member`,
+    onSuccess: async (data: any) => {
+      if (data?.success) {
+        await queryClient.invalidateQueries({ queryKey: ["members"] });
+        toast.success(`Member approved successfully!`, {
+          description: `TNS Number: ${data?.tnsNumber} • Status: Active Member`,
           duration: 5000,
-        },
-      );
-
-      // Comprehensive system refresh to update all UI components
-      console.log("Refreshing all system data after member approval...");
-      await fetchPendingRegistrations();
-
-      // Log the approval for audit purposes
-      console.log(
-        `Audit: Member ${memberData?.firstName} ${memberData?.lastName} (${memberData?.email}) approved by admin`,
-      );
-    } catch (error) {
-      console.error("Error approving member:", error);
-
-      let errorMessage = "Failed to approve member.";
-      if (error.message?.includes("already been processed")) {
-        errorMessage =
-          "Member may have already been approved by another admin.";
-      } else if (error.message?.includes("permission")) {
-        errorMessage = "You don't have permission to approve members.";
+        });
       }
-
-      toast.error(errorMessage, {
-        description: "Please refresh the page and try again.",
-        duration: 7000,
-      });
-    }
-  };
+    },
+    onError: (error: any) => {
+      if (error?.response?.data?.error) {
+        toast.error("Error occurred", {
+          description: error?.response?.data?.error,
+          duration: 7000,
+        });
+      } else {
+        toast.error("Error occurred", {
+          description: "Something went Wrong, Try again!",
+          duration: 7000,
+        });
+      }
+    },
+  });
 
   const rejectMember = async (memberId: string) => {
     try {
@@ -697,7 +660,7 @@ const AdminPortal = () => {
 
   const openEditDialog = (member: MemberRegistration) => {
     // Additional safety check - only allow admins to edit members
-    if (user && user.role !== "admin") {
+    if (user && user.userRole !== "admin") {
       toast.error("Access denied. Only Admins can edit members.", {
         description: "This action requires Administrator privileges.",
         duration: 5000,
@@ -934,7 +897,7 @@ const AdminPortal = () => {
         memberName: `${editFormData.firstName} ${editFormData.lastName}`,
         memberEmail: editFormData.email,
         updatedBy: user
-          ? `${user.firstName} ${user.lastName} (${user.role})`
+          ? `${user.firstName} ${user.lastName} (${user.userRole})`
           : "Admin",
         timestamp: new Date().toISOString(),
         changes: {
@@ -982,7 +945,7 @@ const AdminPortal = () => {
 
   const openDeleteDialog = (member: MemberRegistration) => {
     // Additional safety check - only allow admins to delete members
-    if (user && user.role !== "admin") {
+    if (user && user.userRole !== "admin") {
       toast.error("Access denied. Only Admins can delete members.", {
         description: "This action requires Administrator privileges.",
         duration: 5000,
@@ -1456,7 +1419,7 @@ const AdminPortal = () => {
         memberName,
         memberEmail: memberToDelete.email,
         deletedBy: user
-          ? `${user.firstName} ${user.lastName} (${user.role})`
+          ? `${user.firstName} ${user.lastName} (${user.userRole})`
           : "Admin",
         timestamp: new Date().toISOString(),
         deletionSummary,
@@ -1499,7 +1462,7 @@ const AdminPortal = () => {
     }
   };
 
-  const openPasswordDialog = (staff: StaffRegistration) => {
+  const openPasswordDialog = (staff: Staff) => {
     setSelectedStaff(staff);
     setPortalPassword("");
     setIsPasswordDialogOpen(true);
@@ -1554,7 +1517,7 @@ const AdminPortal = () => {
     if (user) {
       signOut();
       toast.success("Logged out successfully");
-      navigate("/portal-login");
+      navigate("/auth");
     } else {
       navigate("/dashboard");
     }
@@ -1600,18 +1563,16 @@ const AdminPortal = () => {
           );
         };
 
-        const rows = (allMembers || []).map((m) => [
-          `${m.firstName || ""} ${m.lastName || ""}`.trim(),
-          m.email || "",
-          m.phone || "",
+        const rows = (members || []).map((m) => [
+          `${m.user.firstName || ""} ${m.user.lastName || ""}`.trim(),
+          m.user.email || "",
+          m.user.phone || "",
           m.city || "",
           m.state || "",
-          m.tns_number || "-",
-          m.registration_status || "-",
-          m.payment_status || "-",
-          m.registration_date
-            ? new Date(m.registration_date).toLocaleDateString()
-            : "-",
+          m.tnsNumber || "-",
+          m.registrationStatus || "-",
+          m.paymentStatus || "-",
+          m.createdAt ? new Date(m.createdAt).toLocaleDateString() : "-",
         ]);
 
         autoTable(doc, {
@@ -1712,7 +1673,7 @@ const AdminPortal = () => {
     try {
       // Generate sample financial data for the report
       const financialSummary = {
-        totalMembers: allMembers.length,
+        totalMembers: members.length,
         totalContributions: 2450000,
         totalDisbursements: 1850000,
         monthlyExpenses: 125000,
@@ -1950,57 +1911,6 @@ const AdminPortal = () => {
     }
   };
 
-  // Show loading state while checking authorization or loading data
-  // if (roleLoading || loading) {
-  //   return (
-  //     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
-  //       <div className="text-center space-y-4">
-  //         <div className="relative">
-  //           <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full blur opacity-75"></div>
-  //           <div className="relative bg-gradient-to-r from-blue-500 to-indigo-600 p-4 rounded-full">
-  //             <Shield className="h-8 w-8 text-white" />
-  //           </div>
-  //         </div>
-  //         <div className="space-y-2">
-  //           <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600" />
-  //           <p className="text-gray-600 dark:text-gray-400 font-medium">
-  //             {roleLoading
-  //               ? "Verifying admin access..."
-  //               : "Loading admin portal..."}
-  //           </p>
-  //         </div>
-  //       </div>
-  //     </div>
-  //   );
-  // }
-
-  // If not authorized, the role guard will handle redirection
-  if (!isAuthorized) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
-        <div className="text-center space-y-4">
-          <div className="relative">
-            <div className="absolute inset-0 bg-gradient-to-r from-red-600 to-red-600 rounded-full blur opacity-75"></div>
-            <div className="relative bg-gradient-to-r from-red-500 to-red-600 p-4 rounded-full">
-              <Shield className="h-8 w-8 text-white" />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <p className="text-red-600 dark:text-red-400 font-bold text-xl">
-              Access Denied
-            </p>
-            <p className="text-gray-600 dark:text-gray-400">
-              You don't have permission to access the Admin Portal.
-            </p>
-            <p className="text-sm text-gray-500 dark:text-gray-500">
-              Redirecting to appropriate portal...
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50 dark:from-slate-950 dark:via-blue-950/30 dark:to-indigo-950">
       {/* Enhanced Header with Gradient Background */}
@@ -2029,16 +1939,16 @@ const AdminPortal = () => {
                         variant="secondary"
                         className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-300 dark:border-green-700"
                       >
-                        {user.firstName} {user.lastName} • {user.role}
+                        {user.firstName} {user.lastName} • {user.userRole}
                       </Badge>
                     </div>
                   )}
-                  {user && !user && (
+                  {user && (
                     <Badge
                       variant="secondary"
                       className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
                     >
-                      {user.email}
+                      {user?.email}
                     </Badge>
                   )}
                 </div>
@@ -2046,11 +1956,11 @@ const AdminPortal = () => {
             </div>
             <div className="flex items-center space-x-3">
               <Button
-                onClick={() => navigate(user ? "/portal-login" : "/dashboard")}
+                onClick={() => navigate(user ? "/dashboard" : "/auth")}
                 variant="outline"
                 className="border-gray-300 hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-800 transition-all duration-200"
               >
-                Back to {user ? "Portal Login" : "Dashboard"}
+                Back to {user ? "Dashboard" : "Portal Login"}
               </Button>
               {user && (
                 <Button
@@ -2108,7 +2018,7 @@ const AdminPortal = () => {
                   variant="secondary"
                   className="ml-2 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 text-xs px-2 py-0.5 rounded-full"
                 >
-                  {allMembers.length}
+                  {members && members.length}
                 </Badge>
               </TabsTrigger>
               <TabsTrigger
@@ -2133,7 +2043,7 @@ const AdminPortal = () => {
                   variant="secondary"
                   className="ml-2 bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400 text-xs px-2 py-0.5 rounded-full"
                 >
-                  {allStaff.length}
+                  {approvedStaff.length}
                 </Badge>
               </TabsTrigger>
             </TabsList>
@@ -2168,7 +2078,7 @@ const AdminPortal = () => {
                     </CardHeader>
                     <CardContent className="space-y-2">
                       <div className="text-3xl font-bold text-blue-800 dark:text-blue-200">
-                        {allMembers.length}
+                        {!loadingMembers && members.length}
                       </div>
                       <p className="text-sm text-blue-600 dark:text-blue-400">
                         {pendingMembers.length} pending approval
@@ -2177,7 +2087,7 @@ const AdminPortal = () => {
                         <div
                           className="bg-blue-500 h-2 rounded-full transition-all duration-500"
                           style={{
-                            width: `${Math.min((allMembers.length / 100) * 100, 100)}%`,
+                            width: `${!loadingMembers && Math.min((members.length / 100) * 100, 100)}%`,
                           }}
                         ></div>
                       </div>
@@ -2195,27 +2105,27 @@ const AdminPortal = () => {
                     </CardHeader>
                     <CardContent className="space-y-2">
                       <div className="text-3xl font-bold text-emerald-800 dark:text-emerald-200">
-                        {
-                          allMembers.filter(
-                            (m) => m.registration_status === "approved",
-                          ).length
-                        }
+                        {!loadingMembers &&
+                          members.filter(
+                            (m) => m.registrationStatus === "approved",
+                          ).length}
                       </div>
                       <p className="text-sm text-emerald-600 dark:text-emerald-400">
-                        {(
-                          (allMembers.filter(
-                            (m) => m.registration_status === "approved",
-                          ).length /
-                            allMembers.length) *
-                            100 || 0
-                        ).toFixed(1)}
+                        {!loadingMembers &&
+                          (
+                            (members.filter(
+                              (m) => m.registrationStatus === "approved",
+                            ).length /
+                              members?.length) *
+                              100 || 0
+                          ).toFixed(1)}
                         % approval rate
                       </p>
                       <div className="w-full bg-emerald-200 dark:bg-emerald-800 rounded-full h-2">
                         <div
                           className="bg-emerald-500 h-2 rounded-full transition-all duration-500"
                           style={{
-                            width: `${(allMembers.filter((m) => m.registration_status === "approved").length / allMembers.length) * 100 || 0}%`,
+                            width: `${(!loadingMembers && (members.filter((m) => m.registrationStatus === "approved").length / members.length) * 100) || 0}%`,
                           }}
                         ></div>
                       </div>
@@ -2233,7 +2143,7 @@ const AdminPortal = () => {
                     </CardHeader>
                     <CardContent className="space-y-2">
                       <div className="text-3xl font-bold text-purple-800 dark:text-purple-200">
-                        {allStaff.length}
+                        {approvedStaff.length}
                       </div>
                       <p className="text-sm text-purple-600 dark:text-purple-400">
                         {pendingStaff.length} pending approval
@@ -2260,26 +2170,27 @@ const AdminPortal = () => {
                     </CardHeader>
                     <CardContent className="space-y-2">
                       <div className="text-3xl font-bold text-orange-800 dark:text-orange-200">
-                        {Math.round(
-                          (allMembers.filter((m) => m.payment_status === "paid")
-                            .length /
-                            allMembers.length) *
-                            100,
-                        ) || 0}
+                        {(!loadingMembers &&
+                          Math.round(
+                            (members.filter((m) => m.paymentStatus === "paid")
+                              .length /
+                              members.length) *
+                              100,
+                          )) ||
+                          0}
                         %
                       </div>
                       <p className="text-sm text-orange-600 dark:text-orange-400">
-                        {
-                          allMembers.filter((m) => m.payment_status === "paid")
-                            .length
-                        }{" "}
+                        {!loadingMembers &&
+                          members.filter((m) => m.paymentStatus === "paid")
+                            .length}{" "}
                         members paid
                       </p>
                       <div className="w-full bg-orange-200 dark:bg-orange-800 rounded-full h-2">
                         <div
                           className="bg-orange-500 h-2 rounded-full transition-all duration-500"
                           style={{
-                            width: `${Math.round((allMembers.filter((m) => m.payment_status === "paid").length / allMembers.length) * 100) || 0}%`,
+                            width: `${(!loadingMembers && Math.round((members.filter((m) => m.paymentStatus === "paid").length / members.length) * 100)) || 0}%`,
                           }}
                         ></div>
                       </div>
@@ -2319,11 +2230,10 @@ const AdminPortal = () => {
                         <div className="grid grid-cols-3 gap-4 mt-4">
                           <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
                             <div className="text-2xl font-bold text-green-700 dark:text-green-400">
-                              {
-                                allMembers.filter(
-                                  (m) => m.registration_status === "approved",
-                                ).length
-                              }
+                              {!loadingMembers &&
+                                members.filter(
+                                  (m) => m.registrationStatus === "approved",
+                                ).length}
                             </div>
                             <div className="text-xs text-green-600 dark:text-green-500">
                               Approved
@@ -2331,11 +2241,10 @@ const AdminPortal = () => {
                           </div>
                           <div className="text-center p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
                             <div className="text-2xl font-bold text-yellow-700 dark:text-yellow-400">
-                              {
-                                allMembers.filter(
-                                  (m) => m.registration_status === "pending",
-                                ).length
-                              }
+                              {!loadingMembers &&
+                                members.filter(
+                                  (m) => m.registrationStatus === "pending",
+                                ).length}
                             </div>
                             <div className="text-xs text-yellow-600 dark:text-yellow-500">
                               Pending
@@ -2343,11 +2252,10 @@ const AdminPortal = () => {
                           </div>
                           <div className="text-center p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
                             <div className="text-2xl font-bold text-red-700 dark:text-red-400">
-                              {
-                                allMembers.filter(
-                                  (m) => m.registration_status === "rejected",
-                                ).length
-                              }
+                              {!loadingMembers &&
+                                members.filter(
+                                  (m) => m.registrationStatus === "rejected",
+                                ).length}
                             </div>
                             <div className="text-xs text-red-600 dark:text-red-500">
                               Rejected
@@ -2380,22 +2288,22 @@ const AdminPortal = () => {
                               data={[
                                 {
                                   name: "approved",
-                                  value: allMembers.filter(
-                                    (m) => m.registration_status === "approved",
+                                  value: members.filter(
+                                    (m) => m.registrationStatus === "approved",
                                   ).length,
                                   fill: "hsl(142, 76%, 36%)",
                                 },
                                 {
                                   name: "pending",
-                                  value: allMembers.filter(
-                                    (m) => m.registration_status === "pending",
+                                  value: members.filter(
+                                    (m) => m.registrationStatus === "pending",
                                   ).length,
                                   fill: "hsl(45, 93%, 47%)",
                                 },
                                 {
                                   name: "rejected",
-                                  value: allMembers.filter(
-                                    (m) => m.registration_status === "rejected",
+                                  value: members.filter(
+                                    (m) => m.registrationStatus === "rejected",
                                   ).length,
                                   fill: "hsl(0, 84%, 60%)",
                                 },
@@ -2409,22 +2317,22 @@ const AdminPortal = () => {
                               {[
                                 {
                                   name: "approved",
-                                  value: allMembers.filter(
-                                    (m) => m.registration_status === "approved",
+                                  value: members.filter(
+                                    (m) => m.registrationStatus === "approved",
                                   ).length,
                                   fill: "hsl(142, 76%, 36%)",
                                 },
                                 {
                                   name: "pending",
-                                  value: allMembers.filter(
-                                    (m) => m.registration_status === "pending",
+                                  value: members.filter(
+                                    (m) => m.registrationStatus === "pending",
                                   ).length,
                                   fill: "hsl(45, 93%, 47%)",
                                 },
                                 {
                                   name: "rejected",
-                                  value: allMembers.filter(
-                                    (m) => m.registration_status === "rejected",
+                                  value: members.filter(
+                                    (m) => m.registrationStatus === "rejected",
                                   ).length,
                                   fill: "hsl(0, 84%, 60%)",
                                 },
@@ -2480,15 +2388,15 @@ const AdminPortal = () => {
                               data={[
                                 {
                                   name: "individual",
-                                  value: allMembers.filter(
-                                    (m) => m.membership_type === "individual",
+                                  value: members.filter(
+                                    (m) => m.membershipType === "individual",
                                   ).length,
                                   fill: "hsl(217, 91%, 60%)",
                                 },
                                 {
                                   name: "family",
-                                  value: allMembers.filter(
-                                    (m) => m.membership_type === "family",
+                                  value: members.filter(
+                                    (m) => m.membershipType === "family",
                                   ).length,
                                   fill: "hsl(142, 76%, 36%)",
                                 },
@@ -2502,15 +2410,15 @@ const AdminPortal = () => {
                               {[
                                 {
                                   name: "individual",
-                                  value: allMembers.filter(
-                                    (m) => m.membership_type === "individual",
+                                  value: members.filter(
+                                    (m) => m.membershipType === "individual",
                                   ).length,
                                   fill: "hsl(217, 91%, 60%)",
                                 },
                                 {
                                   name: "family",
-                                  value: allMembers.filter(
-                                    (m) => m.membership_type === "family",
+                                  value: members.filter(
+                                    (m) => m.membershipType === "family",
                                   ).length,
                                   fill: "hsl(142, 76%, 36%)",
                                 },
@@ -2656,16 +2564,16 @@ const AdminPortal = () => {
                                 <div className="relative">
                                   <Avatar className="h-12 w-12 border-2 border-orange-200 dark:border-orange-700">
                                     <AvatarImage
-                                      src={
-                                        member.profile_picture_url || undefined
-                                      }
+                                      src={member.user?.photo || undefined}
                                       alt={
-                                        member.firstName + " " + member.lastName
+                                        member.user?.firstName +
+                                        " " +
+                                        member.user?.lastName
                                       }
                                     />
                                     <AvatarFallback className="bg-gradient-to-r from-orange-400 to-red-500 text-white font-semibold">
-                                      {member.firstName?.charAt(0)}
-                                      {member.lastName?.charAt(0)}
+                                      {member.user?.firstName?.charAt(0)}
+                                      {member.user?.lastName?.charAt(0)}
                                     </AvatarFallback>
                                   </Avatar>
                                   <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-400 rounded-full animate-pulse"></div>
@@ -2674,20 +2582,21 @@ const AdminPortal = () => {
                               <TableCell>
                                 <div className="space-y-1">
                                   <div className="font-semibold text-gray-900 dark:text-gray-100 text-base">
-                                    {member.firstName} {member.lastName}
+                                    {member.user?.firstName}{" "}
+                                    {member.user?.lastName}
                                   </div>
                                   <div className="flex gap-2">
                                     <Badge
                                       variant="outline"
-                                      className="text-xs border-gray-300 text-gray-600"
+                                      className="text-xs capitalize border-gray-300 text-gray-600"
                                     >
                                       {member.sex || "N/A"}
                                     </Badge>
                                     <Badge
                                       variant="outline"
-                                      className="text-xs border-gray-300 text-gray-600"
+                                      className="text-xs capitalize border-gray-300 text-gray-600"
                                     >
-                                      {member.marital_status || "N/A"}
+                                      {member.maritalStatus || "N/A"}
                                     </Badge>
                                   </div>
                                 </div>
@@ -2695,15 +2604,15 @@ const AdminPortal = () => {
                               <TableCell>
                                 <div className="space-y-2">
                                   <div className="font-medium text-gray-900 dark:text-gray-100">
-                                    {member.email}
+                                    {member.user?.email}
                                   </div>
                                   <div className="space-y-1">
                                     <div className="text-sm text-gray-600 dark:text-gray-400">
-                                      {member.phone}
+                                      {member.user?.phone}
                                     </div>
-                                    {member.alternative_phone && (
+                                    {member.alternativePhone && (
                                       <div className="text-xs text-gray-500 dark:text-gray-500">
-                                        Alt: {member.alternative_phone}
+                                        Alt: {member.alternativePhone}
                                       </div>
                                     )}
                                   </div>
@@ -2712,11 +2621,11 @@ const AdminPortal = () => {
                               <TableCell>
                                 <div className="space-y-1 text-sm">
                                   <div className="font-medium text-gray-900 dark:text-gray-100">
-                                    {member.address}
+                                    {member?.address ?? "N/A"}
                                   </div>
                                   <div className="text-gray-600 dark:text-gray-400">
-                                    {member.city}, {member.state}{" "}
-                                    {member.zip_code}
+                                    {member?.city}, {member?.state}{" "}
+                                    {member?.zipCode}
                                   </div>
                                 </div>
                               </TableCell>
@@ -2725,16 +2634,16 @@ const AdminPortal = () => {
                                   variant="outline"
                                   className="font-mono text-xs"
                                 >
-                                  {member.id_number || "N/A"}
+                                  {member.idNumber || "N/A"}
                                 </Badge>
                               </TableCell>
                               <TableCell>
                                 <div className="space-y-1">
                                   <div className="font-medium text-gray-900 dark:text-gray-100 text-sm">
-                                    {member.emergency_contact_name}
+                                    {member?.emergencyContactName ?? "N/A"}
                                   </div>
                                   <div className="text-sm text-gray-600 dark:text-gray-400">
-                                    {member.emergency_contact_phone}
+                                    {member?.emergencyContactPhone ?? "N/A"}
                                   </div>
                                 </div>
                               </TableCell>
@@ -2744,39 +2653,39 @@ const AdminPortal = () => {
                                     variant="secondary"
                                     className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 text-xs"
                                   >
-                                    {member.membership_type}
+                                    {member.membershipType}
                                   </Badge>
                                   <Badge
                                     variant={
-                                      member.payment_status === "paid"
+                                      member.paymentStatus === "paid"
                                         ? "default"
                                         : "secondary"
                                     }
                                     className={`text-xs ${
-                                      member.payment_status === "paid"
+                                      member.paymentStatus === "paid"
                                         ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
                                         : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
                                     }`}
                                   >
-                                    {member.payment_status}
+                                    {member?.paymentStatus ?? "-"}
                                   </Badge>
                                 </div>
                               </TableCell>
                               <TableCell>
                                 <div className="font-mono text-xs px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                                  {member.mpesa_payment_reference || "—"}
+                                  {member?.mpesaPaymentPeference || "—"}
                                 </div>
                               </TableCell>
                               <TableCell>
                                 <div className="text-sm">
                                   <div className="font-medium text-gray-900 dark:text-gray-100">
                                     {new Date(
-                                      member.registration_date,
+                                      member.createdAt,
                                     ).toLocaleDateString()}
                                   </div>
                                   <div className="text-xs text-gray-500 dark:text-gray-500">
                                     {new Date(
-                                      member.registration_date,
+                                      member.createdAt,
                                     ).toLocaleTimeString()}
                                   </div>
                                 </div>
@@ -2785,7 +2694,9 @@ const AdminPortal = () => {
                                 <div className="flex flex-col space-y-2">
                                   <Button
                                     size="sm"
-                                    onClick={() => approveMember(member.id)}
+                                    onClick={() =>
+                                      approveMember.mutate(member.id)
+                                    }
                                     className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-md hover:shadow-lg transition-all duration-200 w-full"
                                   >
                                     <UserCheck className="h-4 w-4 mr-2" />
@@ -2851,7 +2762,7 @@ const AdminPortal = () => {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  {allMembers.length === 0 ? (
+                  {members.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
                       No members registered yet
                     </div>
@@ -2876,74 +2787,79 @@ const AdminPortal = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {allMembers.map((member) => (
+                        {members.map((member) => (
                           <TableRow key={member.id}>
                             <TableCell>
                               <Avatar className="h-10 w-10">
                                 <AvatarImage
-                                  src={member.profile_picture_url || undefined}
-                                  alt={member.firstName + " " + member.lastName}
+                                  src={member.user.photo || undefined}
+                                  alt={
+                                    member.user?.firstName +
+                                    " " +
+                                    member.user?.lastName
+                                  }
                                 />
                                 <AvatarFallback>
-                                  {member.firstName?.charAt(0)}
-                                  {member.lastName?.charAt(0)}
+                                  {member.user?.firstName?.charAt(0)}
+                                  {member.user?.lastName?.charAt(0)}
                                 </AvatarFallback>
                               </Avatar>
                             </TableCell>
                             <TableCell className="font-medium">
                               <div>
-                                {member.firstName} {member.lastName}
+                                {member.user?.firstName} {member.user?.lastName}
                               </div>
                               <div className="text-sm text-muted-foreground">
                                 {member.sex || "N/A"},{" "}
-                                {member.marital_status || "N/A"}
+                                {member.maritalStatus || "N/A"}
                               </div>
                             </TableCell>
-                            <TableCell>{member.email}</TableCell>
+                            <TableCell>{member.user?.email}</TableCell>
                             <TableCell>
-                              <div>{member.phone}</div>
-                              {member.alternative_phone && (
+                              <div>{member.user?.phone}</div>
+                              {member.alternativePhone && (
                                 <div className="text-sm text-muted-foreground">
-                                  Alt: {member.alternative_phone}
+                                  Alt: {member.alternativePhone}
                                 </div>
                               )}
                             </TableCell>
                             <TableCell>
                               <div className="text-sm">
-                                <div>{member.address}</div>
+                                <div>{member?.address ?? "N/A"}</div>
                                 <div>
-                                  {member.city}, {member.state}{" "}
-                                  {member.zip_code}
+                                  {member?.city}, {member.state}{" "}
+                                  {member?.zipCode}
                                 </div>
                               </div>
                             </TableCell>
                             <TableCell className="text-sm">
-                              {member.id_number || "N/A"}
+                              {member?.idNumber || "N/A"}
                             </TableCell>
                             <TableCell>
                               <div className="text-sm">
                                 <div className="font-medium">
-                                  {member.emergency_contact_name}
+                                  {member?.emergencyContactName}
                                 </div>
                                 <div className="text-muted-foreground">
-                                  {member.emergency_contact_phone}
+                                  {member?.emergencyContactPhone}
                                 </div>
                               </div>
                             </TableCell>
                             <TableCell>
                               <div className="space-y-1">
-                                <Badge variant="outline">
-                                  {member.membership_type}
+                                <Badge variant="outline" className="capitalize">
+                                  {member?.membershipType}
                                 </Badge>
                                 <div className="text-sm">
                                   <Badge
+                                    className="capitalize"
                                     variant={
-                                      member.payment_status === "paid"
+                                      member?.paymentStatus === "paid"
                                         ? "default"
                                         : "secondary"
                                     }
                                   >
-                                    {member.payment_status}
+                                    {member?.paymentStatus}
                                   </Badge>
                                 </div>
                               </div>
@@ -2951,58 +2867,58 @@ const AdminPortal = () => {
                             <TableCell>
                               <div className="space-y-1">
                                 <Badge
+                                  className="capitalize"
                                   variant={
-                                    member.maturity_status === "mature"
+                                    member.maturityStatus === "mature"
                                       ? "default"
                                       : "secondary"
                                   }
                                 >
-                                  {member.maturity_status || "probation"}
+                                  {member.maturityStatus || "probation"}
                                 </Badge>
-                                {member.days_to_maturity !== undefined &&
-                                  member.days_to_maturity > 0 && (
+                                {member.daysToMaturity !== undefined &&
+                                  member.daysToMaturity > 0 && (
                                     <div className="text-xs text-muted-foreground">
-                                      {member.days_to_maturity} days left
+                                      {member.daysToMaturity} days left
                                     </div>
                                   )}
                               </div>
                             </TableCell>
                             <TableCell>
-                              {member.tns_number || "Not assigned"}
+                              {member?.tnsNumber || "Not assigned"}
                             </TableCell>
                             <TableCell>
                               <div className="font-mono text-xs px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                                {member.mpesa_payment_reference || "—"}
+                                {member.mpesaPaymentReference || "—"}
                               </div>
                             </TableCell>
                             <TableCell>
                               <Badge
+                                className="capitalize"
                                 variant={
-                                  member.registration_status === "approved"
+                                  member.registrationStatus === "approved"
                                     ? "default"
-                                    : member.registration_status === "pending"
+                                    : member.registrationStatus === "pending"
                                       ? "secondary"
                                       : "destructive"
                                 }
                               >
-                                {member.registration_status}
+                                {member.registrationStatus}
                               </Badge>
                             </TableCell>
                             <TableCell>
-                              {new Date(
-                                member.registration_date,
-                              ).toLocaleDateString()}
+                              {new Date(member.createdAt).toLocaleDateString()}
                             </TableCell>
                             <TableCell>
                               <div className="flex justify-center space-x-2">
-                                {user?.role === "admin" ? (
+                                {user && user?.userRole === "admin" ? (
                                   <>
                                     <Button
                                       variant="ghost"
                                       size="sm"
                                       onClick={() => openEditDialog(member)}
                                       className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-950/20 transition-colors"
-                                      title={`Edit ${member.firstName} ${member.lastName}`}
+                                      title={`Edit ${member.user?.firstName} ${member.user?.lastName}`}
                                     >
                                       <Edit className="h-4 w-4" />
                                     </Button>
@@ -3011,7 +2927,7 @@ const AdminPortal = () => {
                                       size="sm"
                                       onClick={() => openDeleteDialog(member)}
                                       className="text-red-600 hover:text-red-800 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-950/20 transition-colors"
-                                      title={`Delete ${member.firstName} ${member.lastName}`}
+                                      title={`Delete ${member.user?.firstName} ${member.user?.lastName}`}
                                     >
                                       <Trash2 className="h-4 w-4" />
                                     </Button>
@@ -3052,7 +2968,8 @@ const AdminPortal = () => {
                           <TableHead>Name</TableHead>
                           <TableHead>Email</TableHead>
                           <TableHead>Phone</TableHead>
-                          <TableHead>Role</TableHead>
+                          <TableHead>Requested Role</TableHead>
+                          <TableHead>Current Role</TableHead>
                           <TableHead>Assigned Area</TableHead>
                           <TableHead>Date</TableHead>
                           <TableHead>Actions</TableHead>
@@ -3065,15 +2982,25 @@ const AdminPortal = () => {
                               {staff.firstName} {staff.lastName}
                             </TableCell>
                             <TableCell>{staff.email}</TableCell>
-                            <TableCell>{staff.phone}</TableCell>
+                            <TableCell>{staff?.phone ?? "N/A"}</TableCell>
                             <TableCell>
-                              <Badge variant="secondary">{staff.role}</Badge>
+                              <Badge variant="secondary">
+                                {staff?.requestedRole ?? "N/A"}
+                              </Badge>
                             </TableCell>
                             <TableCell>
-                              {staff.assigned_area || "N/A"}
+                              <Badge
+                                variant="secondary"
+                                className="bg-green-900 hover:bg-black"
+                              >
+                                {staff?.userRole}
+                              </Badge>
                             </TableCell>
                             <TableCell>
-                              {new Date(staff.created_at).toLocaleDateString()}
+                              {staff?.assignedArea || "N/A"}
+                            </TableCell>
+                            <TableCell>
+                              {new Date(staff?.createdAt).toLocaleDateString()}
                             </TableCell>
                             <TableCell>
                               <div className="flex space-x-2">
@@ -3113,7 +3040,7 @@ const AdminPortal = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {allStaff.length === 0 ? (
+                  {staffs.isSuccess && staffs.data.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
                       No staff registered yet
                     </div>
@@ -3128,43 +3055,44 @@ const AdminPortal = () => {
                           <TableHead>Assigned Area</TableHead>
                           <TableHead>Status</TableHead>
                           <TableHead>Date</TableHead>
+                          <TableHead>Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {allStaff.map((staff) => (
-                          <TableRow key={staff.id}>
-                            <TableCell className="font-medium">
-                              {staff.firstName} {staff.lastName}
-                            </TableCell>
-                            <TableCell>{staff.email}</TableCell>
-                            <TableCell>{staff.phone}</TableCell>
-                            <TableCell>
-                              <Badge variant="secondary">
-                                {staff.staff_role}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {staff.assigned_area || "N/A"}
-                            </TableCell>
-                            <TableCell>
-                              <Badge
-                                variant={
-                                  staff.pending === "approved"
-                                    ? "default"
-                                    : staff.pending === "pending" ||
-                                        staff.pending === ""
-                                      ? "secondary"
-                                      : "destructive"
-                                }
-                              >
-                                {staff.pending || "pending"}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {new Date(staff.created_at).toLocaleDateString()}
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                        {staffs.isSuccess &&
+                          approvedStaff.map((staff) => (
+                            <TableRow key={staff.id}>
+                              <TableCell className="font-medium">
+                                {staff.firstName} {staff.lastName}
+                              </TableCell>
+                              <TableCell>{staff.email}</TableCell>
+                              <TableCell>{staff.phone ?? "N/A"}</TableCell>
+                              <TableCell>
+                                <Badge variant="secondary">
+                                  {staff?.userRole}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                {staff.assignedArea || "N/A"}
+                              </TableCell>
+                              <TableCell>
+                                <Badge
+                                  variant={
+                                    staff?.approval === "approved"
+                                      ? "default"
+                                      : staff?.approval === "pending"
+                                        ? "secondary"
+                                        : "destructive"
+                                  }
+                                >
+                                  {staff?.approval || "pending"}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                {new Date(staff.createdAt).toLocaleDateString()}
+                              </TableCell>
+                            </TableRow>
+                          ))}
                       </TableBody>
                     </Table>
                   )}
@@ -4210,7 +4138,10 @@ const AdminPortal = () => {
                 <DialogTitle>Assign Portal Password</DialogTitle>
                 <DialogDescription>
                   Set a portal password for {selectedStaff?.firstName}{" "}
-                  {selectedStaff?.lastName} ({selectedStaff?.staff_role})
+                  {selectedStaff?.lastName}{" "}
+                  <Badge variant="outline">
+                    {selectedStaff?.requestedRole}
+                  </Badge>
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
@@ -4221,6 +4152,7 @@ const AdminPortal = () => {
                     type="password"
                     placeholder="Enter a secure password"
                     value={portalPassword}
+                    // disabled={selectedStaff?.password!}
                     onChange={(e) => setPortalPassword(e.target.value)}
                     autoFocus
                   />
@@ -4241,8 +4173,15 @@ const AdminPortal = () => {
                   onClick={approveStaffWithPassword}
                   disabled={!portalPassword.trim()}
                 >
-                  <UserCheck className="h-4 w-4 mr-2" />
-                  Approve & Assign Password
+                  <Lock className="h-4 w-4" />
+                  Assign Password
+                </Button>
+                <Button
+                  onClick={approveStaffWithPassword}
+                  // disabled={!portalPassword.trim()}
+                >
+                  <UserCheck className="h-4 w-4" />
+                  Approve
                 </Button>
               </DialogFooter>
             </DialogContent>

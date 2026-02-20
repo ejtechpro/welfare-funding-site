@@ -46,9 +46,10 @@ app.get("/api", async (req, res) => {
 });
 
 app.use("/api/auth", require("./routes/authRoutes.js"));
+app.use("/api/member-auth", require("./routes/memberAuth.js"));
 app.use("/api/mpesa", require("./routes/stkpush.js"));
-app.use("/api/members", require("./routes/memberRoutes.js"));
 app.use(auth);
+app.use("/api/members", require("./routes/memberRoutes.js"));
 app.use("/api/users", require("./routes/userRoutes.js"));
 
 // Start the server

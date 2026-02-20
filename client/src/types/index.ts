@@ -41,7 +41,7 @@ export type User = {
   dateOfBirth?: Date | null;
   phone?: string | null;
   password?: string | null;
-  role: UserRole;
+  userRole: UserRole;
   requestedRole?: string | null;
   assignedArea?: string | null;
   approval: Userpproval;
@@ -137,3 +137,52 @@ export interface MemberRegistration {
   };
 }
 
+export interface Member {
+  id: string;
+  user: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    photo: string;
+  };
+  address?: string;
+  country: string;
+  city?: string;
+  state?: string;
+  zipCode: string;
+  membershipType: "family" | "individual";
+  registrationStatus: "approved" | "pending" | "rejected";
+  paymentStatus: "paid" | "pending";
+  tnsNumber?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  idNumber?: string;
+  alternativePhone?: string;
+  sex?: string;
+  maritalStatus?: string;
+  maturityStatus?: "probation" | "matured";
+  daysToMaturity?: number;
+  probationEndEate?: string;
+  mpesaPaymentReference?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Staff {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  userRole: UserRole;
+  assignedArea?: string;
+  approval: "pending" | "approved" | "rejected";
+  status: "active" | "banned" | "inactive" | "suspended";
+  requestedRole: UserRole;
+  verificationCode: string;
+  password: string;
+  isVerified: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}

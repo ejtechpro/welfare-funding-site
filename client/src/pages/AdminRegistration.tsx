@@ -55,7 +55,7 @@ const AdminRegistration = () => {
         lastName: formData.lastName,
         email: formData.email.trim().toLowerCase(),
         phone: formData.phone,
-        role: "user",
+        userRole: "user",
         requestedRole: selectedRole,
         assignedArea: formData.areaOfResidence,
       }),

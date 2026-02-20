@@ -29,8 +29,8 @@ const App = () => (
         {/* public */}
         <Route path="/" element={<Index />} />
         <Route path="/auth" element={<Auth />} />
-        <Route path="/portal-login" element={<PortalLogin />} />
-        <Route path="/adminregistration" element={<AdminRegistration />} />
+        {/* <Route path="/portal-login" element={<PortalLogin />} />
+        <Route path="/adminregistration" element={<AdminRegistration />} /> */}
 
         {/* 🔒 Any logged-in user */}
         <Route element={<AuthRoute />}>
