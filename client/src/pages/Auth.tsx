@@ -17,8 +17,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { registerUser, userLogin } from "@/api/user";
 import { useAuth } from "@/hooks/useAuth";
 import { UserRole } from "@/types";
-import { Select } from "@radix-ui/react-select";
 import {
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,

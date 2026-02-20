@@ -41,7 +41,7 @@ router.get("/all", async (req, res) => {
 router.put("/approve/:memberId", async (req, res) => {
   try {
     const { memberId } = req.params;
-    const { userRole, id: userId } = req.user;
+    const { userRole, id: userId, isVerified } = req.user;
 
     const allowedRoles = ["super_admin", "admin"];
 
@@ -50,6 +50,11 @@ router.put("/approve/:memberId", async (req, res) => {
         .status(403)
         .json({ error: "You don't have permissions to approve a member!" });
     }
+    // if (!isVerified) {
+    //   return res.status(403).json({
+    //     error: "This account must be verified before it can be approved.",
+    //   });
+    // }
 
     const tx = await prisma.$transaction(async (tx) => {
       //Atomic counter increment (NO lock needed)
@@ -71,6 +76,11 @@ router.put("/approve/:memberId", async (req, res) => {
         where: { id: memberId },
         data: {
           registrationStatus: "approved",
+          user: {
+            update: {
+              status: "active",
+            },
+          },
           // paymentStatus: "paid",
           tnsNumber: tnsNumber,
         },
@@ -107,6 +117,11 @@ router.put("/reject/:memberId", async (req, res) => {
       where: { id: memberId },
       data: {
         registrationStatus: "rejected",
+        user: {
+          update: {
+            status: "inactive",
+          },
+        },
       },
     });
     res.status(200).json({ success: true });

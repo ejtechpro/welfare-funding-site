@@ -101,7 +101,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getMembersOptions } from "@/queries/memberQueryOptions";
 import { getStaffOptions } from "@/queries/userQueryOptions";
-import { memberApproval } from "@/api/member";
+import { memberApproval, memberRejection } from "@/api/member";
 import type { Staff } from "@/types";
 
 interface MemberRegistration {
@@ -194,7 +194,6 @@ const AdminPortal = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const [allStaff, setAllStaff] = useState<StaffRegistration[]>([]);
   const [mpesaPayments, setMpesaPayments] = useState<MPESAPayment[]>([]);
   const [contributions, setContributions] = useState<Contribution[]>([]);
   const [disbursements, setDisbursements] = useState<Disbursement[]>([]);
@@ -543,10 +542,6 @@ const AdminPortal = () => {
 
       if (expensesError) throw expensesError;
 
-      // setPendingMembers(members || []);
-      // setAllMembers(allMembersData || []);
-      // setPendingStaff(staff || []);
-      setAllStaff(allStaffData || []);
       setMpesaPayments(mpesaWithMembers || []);
       setContributions(contributionsData || []);
       setDisbursements(disbursementsData || []);
@@ -586,77 +581,32 @@ const AdminPortal = () => {
     },
   });
 
-  const rejectMember = async (memberId: string) => {
-    try {
-      // Get member details before rejection for logging and feedback
-      const { data: memberData, error: fetchError } = await supabase
-        .from("membership_registrations")
-        .select("firstName, lastName, email, tns_number")
-        .eq("id", memberId)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      console.log(
-        `Rejecting member: ${memberData?.firstName} ${memberData?.lastName} (ID: ${memberId})`,
-      );
-
-      // Reject the member registration
-      const { error: updateError, count } = await supabase
-        .from("membership_registrations")
-        .update({
-          registration_status: "rejected",
-          updated_at: new Date().toISOString(), // Ensure updated timestamp
-        })
-        .eq("id", memberId)
-        .select();
-
-      if (updateError) throw updateError;
-
-      if (count === 0) {
-        throw new Error(
-          "No member was updated - member may have already been processed",
-        );
-      }
-
-      console.log(
-        `Successfully rejected member: ${memberData?.firstName} ${memberData?.lastName}`,
-      );
-
-      // Show success message with member details
-      toast.success(
-        `❌ Member ${memberData?.firstName} ${memberData?.lastName} registration rejected`,
-        {
-          description: `The member has been notified and removed from pending registrations.`,
+  const rejectMember = useMutation({
+    mutationFn: (memberId: string) => memberRejection(memberId),
+    onSuccess: async (data: any) => {
+      if (data?.success) {
+        await queryClient.invalidateQueries({ queryKey: ["members"] });
+        toast.success(`Member account rejected successfully!`, {
+          description: `The member has been notified and removed from pending registrations!`,
           duration: 5000,
-        },
-      );
-
-      // Comprehensive system refresh to update all UI components
-      console.log("Refreshing all system data after member rejection...");
-      await fetchPendingRegistrations();
-
-      // Log the rejection for audit purposes
-      console.log(
-        `Audit: Member ${memberData?.firstName} ${memberData?.lastName} (${memberData?.email}) rejected by admin`,
-      );
-    } catch (error) {
-      console.error("Error rejecting member:", error);
-
-      let errorMessage = "Failed to reject member.";
-      if (error.message?.includes("already been processed")) {
-        errorMessage =
-          "Member may have already been processed by another admin.";
-      } else if (error.message?.includes("permission")) {
-        errorMessage = "You don't have permission to reject members.";
+        });
       }
+    },
+    onError: (error: any) => {
+      if (error?.response?.data?.error) {
+        toast.error("Error occurred", {
+          description: error?.response?.data?.error,
+          duration: 7000,
+        });
+      } else {
+        toast.error("Error occurred", {
+          description: "Something went Wrong, Try again!",
+          duration: 7000,
+        });
+      }
+    },
+  });
 
-      toast.error(errorMessage, {
-        description: "Please refresh the page and try again.",
-        duration: 7000,
-      });
-    }
-  };
 
   const openEditDialog = (member: MemberRegistration) => {
     // Additional safety check - only allow admins to edit members
@@ -2043,7 +1993,7 @@ const AdminPortal = () => {
                   variant="secondary"
                   className="ml-2 bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400 text-xs px-2 py-0.5 rounded-full"
                 >
-                  {approvedStaff.length}
+                  {staffs.isSuccess && staffs.data.length}
                 </Badge>
               </TabsTrigger>
             </TabsList>
@@ -2143,7 +2093,7 @@ const AdminPortal = () => {
                     </CardHeader>
                     <CardContent className="space-y-2">
                       <div className="text-3xl font-bold text-purple-800 dark:text-purple-200">
-                        {approvedStaff.length}
+                        {staffs.isSuccess && staffs.data.length}
                       </div>
                       <p className="text-sm text-purple-600 dark:text-purple-400">
                         {pendingStaff.length} pending approval
@@ -2152,7 +2102,7 @@ const AdminPortal = () => {
                         <div
                           className="bg-purple-500 h-2 rounded-full transition-all duration-500"
                           style={{
-                            width: `${Math.min((allStaff.length / 20) * 100, 100)}%`,
+                            width: `${Math.min((staffs.isSuccess && staffs.length / 20) * 100, 100)}%`,
                           }}
                         ></div>
                       </div>
@@ -2705,7 +2655,7 @@ const AdminPortal = () => {
                                   <Button
                                     size="sm"
                                     variant="destructive"
-                                    onClick={() => rejectMember(member.id)}
+                                    onClick={() => rejectMember.mutate(member.id)}
                                     className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 shadow-md hover:shadow-lg transition-all duration-200 w-full"
                                   >
                                     <UserX className="h-4 w-4 mr-2" />
@@ -3060,7 +3010,7 @@ const AdminPortal = () => {
                       </TableHeader>
                       <TableBody>
                         {staffs.isSuccess &&
-                          approvedStaff.map((staff) => (
+                          staffs.data.map((staff) => (
                             <TableRow key={staff.id}>
                               <TableCell className="font-medium">
                                 {staff.firstName} {staff.lastName}

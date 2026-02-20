@@ -98,4 +98,76 @@ router.get("/staffs", async (req, res) => {
   }
 });
 
+router.post("/approve/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { userRole, id: uid, isVerified } = req.user;
+
+    const allowedRoles = ["super_admin", "admin"];
+
+    if (!allowedRoles.includes(userRole)) {
+      return res
+        .status(403)
+        .json({ error: "You don't have permissions to approve a member!" });
+    }
+    // if (!isVerified) {
+    //   return res.status(403).json({
+    //     error: "This account must be verified before it can be approved.",
+    //   });
+    // }
+
+    const tx = await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          approval: "approved",
+          status: "active",
+          // paymentStatus: "paid",
+        },
+      });
+      await tx.StaffApproval.create({
+        data: {
+          approvalType: "registration",
+          userId: userId,
+          approverId: uid,
+        },
+      });
+      return true;
+    });
+
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: "Internal server error!" });
+  }
+});
+router.put("/reject/:userId", async (req, res) => {
+  try {
+    const { memberId } = req.params;
+    const { userRole } = req.user;
+    const allowedRoles = ["super_admin", "admin"];
+
+    if (!allowedRoles.includes(userRole)) {
+      return res
+        .status(403)
+        .json({ error: "You don't have permissions to approve a member!" });
+    }
+
+    await prisma.member.update({
+      where: { id: memberId },
+      data: {
+        registrationStatus: "rejected",
+        user: {
+          update: {
+            status: "inactive",
+          },
+        },
+      },
+    });
+    res.status(200).json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: "Internal server error!" });
+  }
+});
+
 module.exports = router;

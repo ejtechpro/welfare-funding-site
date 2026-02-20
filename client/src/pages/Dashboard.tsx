@@ -1,4 +1,4 @@
-import { useNavigate, } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,7 +23,6 @@ import type { UserRole } from "@/types";
 const Dashboard = () => {
   const { user, signOut, loading } = useAuth();
   const navigate = useNavigate();
-
 
   const userRole = user?.userRole as UserRole;
 
@@ -151,7 +150,7 @@ const Dashboard = () => {
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold">TNS Dashboard</h1>
-            <p className="text-muted-foreground">Welcome back!</p>
+            <p className="text-muted-foreground">Welcome back {user?.firstName} {user?.lastName}</p>
           </div>
           <Button onClick={handleSignOut} variant="outline">
             Sign Out
@@ -162,13 +161,23 @@ const Dashboard = () => {
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Your Role</CardTitle>
+                <div className=" space-y-2">
+                  <CardTitle>Your Account</CardTitle>
                   <CardDescription>
-                    Current assignment and permissions
+                    Current roles and permissions
                   </CardDescription>
                 </div>
-                <Badge variant="secondary">{userRole}</Badge>
+                <div className="flex gap-2">
+                  <Badge
+                    variant="secondary"
+                    className="bg-blue-900 capitalize hover:bg-blue-500"
+                  >
+                    {userRole}
+                  </Badge>
+                  <Badge variant="secondary" className=" capitalize">
+                    {user?.approval}
+                  </Badge>
+                </div>
               </div>
             </CardHeader>
           </Card>

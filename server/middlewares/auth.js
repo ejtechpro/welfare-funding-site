@@ -38,20 +38,35 @@ const auth = async (req, res, next) => {
           return res.status(401).json({ error: "You are unauthorized!!!" });
         }
 
-        if (user.status !== "active") {
-          return res.status(401).json({
-            error: `Account is ${user.status}. Please contact support.`,
-          });
-        }
         // if (!user.isVerified) {
         //   return res.status(401).json({
-        //     error: "Please verify your email address.",
+        //     error: "Please verify your account to continue.",
         //   });
         // }
 
+        if (user.status !== "active") {
+          return res.status(401).json({
+            error: `Account is ${user.status}. Please contact support for more information.`,
+          });
+        }
+
+        if (user.approval === "pending") {
+          return res.status(403).json({
+            error:
+              "Your account is awaiting approval. Please wait for an administrator to review your registration.",
+          });
+        }
+
+        if (user.approval === "rejected") {
+          return res.status(403).json({
+            error:
+              "Your account request was rejected. Please contact support for more information.",
+          });
+        }
+
         req.user = user;
         next();
-      }
+      },
     );
   } catch (error) {
     res.status(500).json("Authentication error:", error.message);

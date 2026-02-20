@@ -17,8 +17,8 @@ model User {
   userRole         UserRole         @default(user)
   requestedRole    UserRole?
   assignedArea     String?
-  approval         UserApproval     @default(pending)
-  status           UserStatus       @default(active)
+  approval         ApprovalStatus   @default(pending)
+  status           AccountStatus    @default(active)
   verificationCode String?
   isVerified       Boolean          @default(false)
   createdAt        DateTime         @default(now())
@@ -26,9 +26,14 @@ model User {
   member           Member? //* User can become a member or not
   updatedAt        DateTime         @updatedAt
   photo            String?
-  userPreferences  UserPreference[]
-  approved         MemberApproval[]
+  preferences      UserPreference[]
+  membersApproved  MemberApproval[]
   tasks            Task[] // submitted
+
+  // approvals this user RECEIVED
+  approvalsReceived StaffApproval[] @relation("approved_received")
+  // approvals this user GAVE
+  approvalsGiven    StaffApproval[] @relation("approver_given")
 
   @@index([email])
   @@map("users")
@@ -136,7 +141,7 @@ model Member {
   emergencyContactName  String?
   emergencyContactPhone String?
   membershipType        MembershipType  @default(basic)
-  registrationStatus    UserApproval    @default(pending)
+  registrationStatus    ApprovalStatus  @default(pending)
   paymentStatus         PaymentStatus?
   maturityStatus        MaturityStatus?
   daysToMaturity        Int? // number of days remaining to maturity
@@ -315,6 +320,22 @@ model MemberApproval {
   @@map("member_approvals")
 }
 
+model StaffApproval {
+  id           String       @id @default(ulid())
+  approvalType ApprovalType
+  comment      String?
+  // who was approved
+  user         User         @relation("approved_received", fields: [userId], references: [id], onDelete: Cascade)
+  userId       String
+  // who approved them
+  approver     User?        @relation("approver_given", fields: [approverId], references: [id], onDelete: SetNull)
+  approverId   String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@map("staff_approvals")
+}
+
 model Task {
   id              String        @id @default(ulid())
   title           String
@@ -350,25 +371,25 @@ enum UserRole {
   auditor
 }
 
-enum UserApproval {
+enum ApprovalStatus {
   pending
   rejected
   approved
 }
 
 enum ApprovalType {
-  registration
+  registration // "pending" | "rejected" | "approved"
   payment
   loan
   withdrawal
   benefit
   penalty
   profile_update
-  suspension
+  user_status // "suspension" | "banned" | "active" | "inactive"
   termination
 }
 
-enum UserStatus {
+enum AccountStatus {
   active
   inactive
   suspended
@@ -443,7 +464,7 @@ enum DisbursementType {
 
 enum MpesaPaymentStatus {
   pending
-  success
+  completed
   failed
 }
 
