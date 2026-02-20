@@ -98,9 +98,9 @@ router.get("/staffs", async (req, res) => {
   }
 });
 
-router.post("/approve/:userId", async (req, res) => {
+router.post("/approve", async (req, res) => {
   try {
-    const { userId } = req.params;
+    const { userId, password } = req.body;
     const { userRole, id: uid, isVerified } = req.user;
 
     const allowedRoles = ["super_admin", "admin"];
@@ -123,9 +123,10 @@ router.post("/approve/:userId", async (req, res) => {
           approval: "approved",
           status: "active",
           // paymentStatus: "paid",
+          password: password == "" ? password : null,
         },
       });
-      await tx.StaffApproval.create({
+      await tx.staffApproval.create({
         data: {
           approvalType: "registration",
           userId: userId,
@@ -141,31 +142,35 @@ router.post("/approve/:userId", async (req, res) => {
     res.status(500).json({ error: "Internal server error!" });
   }
 });
-router.put("/reject/:userId", async (req, res) => {
+router.post("/reject", async (req, res) => {
   try {
-    const { memberId } = req.params;
-    const { userRole } = req.user;
+    const { userId } = req.body;
+   
+    const { userRole, id: uid } = req.user;
     const allowedRoles = ["super_admin", "admin"];
 
     if (!allowedRoles.includes(userRole)) {
       return res
         .status(403)
-        .json({ error: "You don't have permissions to approve a member!" });
+        .json({ error: "You don't have permissions to reject a member!" });
     }
 
-    await prisma.member.update({
-      where: { id: memberId },
+    await prisma.user.update({
+      where: { id: userId },
       data: {
-        registrationStatus: "rejected",
-        user: {
-          update: {
-            status: "inactive",
-          },
-        },
+        approval: "rejected",
+      },
+    });
+    await prisma.staffApproval.create({
+      data: {
+        approvalType: "registration",
+        userId: userId,
+        approverId: uid,
       },
     });
     res.status(200).json({ success: true });
   } catch (error) {
+    console.log(error)
     res.status(500).json({ error: "Internal server error!" });
   }
 });

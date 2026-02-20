@@ -69,7 +69,6 @@ import {
   Save,
   X,
   UserMinus,
-  Lock,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
@@ -103,6 +102,7 @@ import { getMembersOptions } from "@/queries/memberQueryOptions";
 import { getStaffOptions } from "@/queries/userQueryOptions";
 import { memberApproval, memberRejection } from "@/api/member";
 import type { Staff } from "@/types";
+import { approveStaffWithPwd, staffRejection } from "@/api/user";
 
 interface MemberRegistration {
   id: string;
@@ -198,7 +198,6 @@ const AdminPortal = () => {
   const [contributions, setContributions] = useState<Contribution[]>([]);
   const [disbursements, setDisbursements] = useState<Disbursement[]>([]);
   const [monthlyExpenses, setMonthlyExpenses] = useState<MonthlyExpense[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedStaff, setSelectedStaff] = useState<Partial<Staff> | null>(
     null,
   );
@@ -242,6 +241,127 @@ const AdminPortal = () => {
     }
     return [];
   }, [staffs]);
+
+  //!MUTATIONS
+   const approveMember = useMutation({
+    mutationFn: (memberId: string) => memberApproval(memberId),
+
+    onSuccess: async (data: any) => {
+      if (data?.success) {
+        await queryClient.invalidateQueries({ queryKey: ["members"] });
+        toast.success(`Member approved successfully!`, {
+          description: `TNS Number: ${data?.tnsNumber} • Status: Active Member`,
+          duration: 5000,
+        });
+      }
+    },
+    onError: (error: any) => {
+      if (error?.response?.data?.error) {
+        toast.error("Error occurred", {
+          description: error?.response?.data?.error,
+          duration: 7000,
+        });
+      } else {
+        toast.error("Error occurred", {
+          description: "Something went Wrong, Try again!",
+          duration: 7000,
+        });
+      }
+    },
+  });
+
+  const rejectMember = useMutation({
+    mutationFn: (memberId: string) => memberRejection(memberId),
+    onSuccess: async (data: any) => {
+      if (data?.success) {
+        await queryClient.invalidateQueries({ queryKey: ["members"] });
+        toast.success(`Member registration rejected successfully!`, {
+          description: `The member has been notified and removed from pending registrations!`,
+          duration: 5000,
+        });
+      }
+    },
+    onError: (error: any) => {
+      if (error?.response?.data?.error) {
+        toast.error("Error occurred", {
+          description: error?.response?.data?.error,
+          duration: 7000,
+        });
+      } else {
+        toast.error("Error occurred", {
+          description: "Something went Wrong, Try again!",
+          duration: 7000,
+        });
+      }
+    },
+  });
+
+  const openPasswordDialog = (staff: Staff) => {
+    setSelectedStaff(staff);
+    setPortalPassword("");
+    setIsPasswordDialogOpen(true);
+  };
+
+  const approveStaff = useMutation({
+    mutationFn: ()=> approveStaffWithPwd({
+      userId: selectedStaff && selectedStaff.id,
+      password: portalPassword
+    }),
+    onSuccess: async (data: any) => {
+      if (data?.success) {
+        await queryClient.invalidateQueries({ queryKey: ["staffs"] });
+        toast.success(`Staff registration approved successfully!`, {
+          description: `Access to portal granted successfully!`,
+          duration: 5000,
+        });
+      setIsPasswordDialogOpen(false);
+      setSelectedStaff(null);
+      setPortalPassword("");
+      }
+    },
+    onError: (error: any) => {
+      if (error?.response?.data?.error) {
+        toast.error("Error occurred", {
+          description: error?.response?.data?.error,
+          duration: 7000,
+        });
+      } else {
+        toast.error("Error occurred", {
+          description: "Something went wrong, Try again!",
+          duration: 7000,
+        });
+      }
+    },
+
+  })
+
+  const rejectStaff = useMutation({
+    mutationFn: (userId: any)=> staffRejection({userId}),
+    onSuccess: async (data: any) => {
+      if (data?.success) {
+        await queryClient.invalidateQueries({ queryKey: ["staffs"] });
+        toast.success(`Staff registration rejected successfully!`, {
+          description: `The user has been notified and removed from pending registrations!`,
+          duration: 5000,
+        });
+      }
+    },
+    onError: (error: any) => {
+      if (error?.response?.data?.error) {
+        toast.error("Error occurred", {
+          description: error?.response?.data?.error,
+          duration: 7000,
+        });
+      } else {
+        toast.error("Error occurred", {
+          description: "Something went wrong, Try again!",
+          duration: 7000,
+        });
+      }
+    },
+  })
+   
+
 
   // Group MPESA payments by member to show contributions under one row per member
   const groupedMpesaPayments = useMemo(() => {
@@ -455,41 +575,10 @@ const AdminPortal = () => {
   // Role-based access is now handled by routes
 
   const fetchPendingRegistrations = async () => {
-    setLoading(true);
     try {
-      // Fetch pending member registrations
-      // const { data: members, error: membersError } = await supabase
-      //   .from("membership_registrations")
-      //   .select("*")
-      //   .eq("registration_status", "pending")
-      //   .order("created_at", { ascending: false });
+    
 
-      // if (membersError) throw membersError;
-
-      // Fetch all member registrations
-      const { data: allMembersData, error: allMembersError } = await supabase
-        .from("membership_registrations")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (allMembersError) throw allMembersError;
-
-      // Fetch pending staff registrations
-      const { data: staff, error: staffError } = await supabase
-        .from("staff_registrations")
-        .select("*")
-        .in("pending", ["", "pending"])
-        .order("created_at", { ascending: false });
-
-      if (staffError) throw staffError;
-
-      // Fetch all staff registrations
-      const { data: allStaffData, error: allStaffError } = await supabase
-        .from("staff_registrations")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (allStaffError) throw allStaffError;
+  
 
       // Fetch MPESA payments - only show completed payments to admin
       const { data: mpesaData, error: mpesaError } = await supabase
@@ -549,64 +638,10 @@ const AdminPortal = () => {
     } catch (error) {
       console.error("Error fetching registrations:", error);
       toast.error("Failed to load registrations");
-    } finally {
-      setLoading(false);
-    }
+    } 
   };
 
-  const approveMember = useMutation({
-    mutationFn: (memberId: string) => memberApproval(memberId),
-
-    onSuccess: async (data: any) => {
-      if (data?.success) {
-        await queryClient.invalidateQueries({ queryKey: ["members"] });
-        toast.success(`Member approved successfully!`, {
-          description: `TNS Number: ${data?.tnsNumber} • Status: Active Member`,
-          duration: 5000,
-        });
-      }
-    },
-    onError: (error: any) => {
-      if (error?.response?.data?.error) {
-        toast.error("Error occurred", {
-          description: error?.response?.data?.error,
-          duration: 7000,
-        });
-      } else {
-        toast.error("Error occurred", {
-          description: "Something went Wrong, Try again!",
-          duration: 7000,
-        });
-      }
-    },
-  });
-
-  const rejectMember = useMutation({
-    mutationFn: (memberId: string) => memberRejection(memberId),
-    onSuccess: async (data: any) => {
-      if (data?.success) {
-        await queryClient.invalidateQueries({ queryKey: ["members"] });
-        toast.success(`Member account rejected successfully!`, {
-          description: `The member has been notified and removed from pending registrations!`,
-          duration: 5000,
-        });
-      }
-    },
-    onError: (error: any) => {
-      if (error?.response?.data?.error) {
-        toast.error("Error occurred", {
-          description: error?.response?.data?.error,
-          duration: 7000,
-        });
-      } else {
-        toast.error("Error occurred", {
-          description: "Something went Wrong, Try again!",
-          duration: 7000,
-        });
-      }
-    },
-  });
-
+ 
 
   const openEditDialog = (member: MemberRegistration) => {
     // Additional safety check - only allow admins to edit members
@@ -1412,57 +1447,7 @@ const AdminPortal = () => {
     }
   };
 
-  const openPasswordDialog = (staff: Staff) => {
-    setSelectedStaff(staff);
-    setPortalPassword("");
-    setIsPasswordDialogOpen(true);
-  };
-
-  const approveStaffWithPassword = async () => {
-    if (!selectedStaff || !portalPassword.trim()) {
-      toast.error("Please enter a portal password");
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from("staff_registrations")
-        .update({
-          pending: "approved",
-          portal_password: portalPassword.trim(),
-        })
-        .eq("id", selectedStaff.id);
-
-      if (error) throw error;
-
-      toast.success("Staff member approved with portal password!");
-      setIsPasswordDialogOpen(false);
-      setSelectedStaff(null);
-      setPortalPassword("");
-      fetchPendingRegistrations();
-    } catch (error) {
-      console.error("Error approving staff:", error);
-      toast.error("Failed to approve staff member");
-    }
-  };
-
-  const rejectStaff = async (staffId: string) => {
-    try {
-      const { error } = await supabase
-        .from("staff_registrations")
-        .update({ pending: "rejected" })
-        .eq("id", staffId);
-
-      if (error) throw error;
-
-      toast.success("Staff registration rejected");
-      fetchPendingRegistrations();
-    } catch (error) {
-      console.error("Error rejecting staff:", error);
-      toast.error("Failed to reject staff member");
-    }
-  };
-
+  
   const handleLogout = () => {
     if (user) {
       signOut();
@@ -2102,7 +2087,7 @@ const AdminPortal = () => {
                         <div
                           className="bg-purple-500 h-2 rounded-full transition-all duration-500"
                           style={{
-                            width: `${Math.min((staffs.isSuccess && staffs.length / 20) * 100, 100)}%`,
+                            width: `${staffs.isSuccess ? Math.min((staffs.data.length / 20) * 100, 100) : 0}%`,
                           }}
                         ></div>
                       </div>
@@ -2623,7 +2608,7 @@ const AdminPortal = () => {
                               </TableCell>
                               <TableCell>
                                 <div className="font-mono text-xs px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                                  {member?.mpesaPaymentPeference || "—"}
+                                  {member?.mpesaPaymentReference || "—"}
                                 </div>
                               </TableCell>
                               <TableCell>
@@ -2819,7 +2804,7 @@ const AdminPortal = () => {
                                 <Badge
                                   className="capitalize"
                                   variant={
-                                    member.maturityStatus === "mature"
+                                    member.maturityStatus === "matured"
                                       ? "default"
                                       : "secondary"
                                   }
@@ -2965,7 +2950,7 @@ const AdminPortal = () => {
                                 <Button
                                   size="sm"
                                   variant="destructive"
-                                  onClick={() => rejectStaff(staff.id)}
+                                  onClick={() => rejectStaff.mutate(staff.id)}
                                 >
                                   <UserX className="h-4 w-4 mr-1" />
                                   Reject
@@ -3005,7 +2990,7 @@ const AdminPortal = () => {
                           <TableHead>Assigned Area</TableHead>
                           <TableHead>Status</TableHead>
                           <TableHead>Date</TableHead>
-                          <TableHead>Actions</TableHead>
+                          {/* <TableHead>Actions</TableHead> */}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -4106,10 +4091,13 @@ const AdminPortal = () => {
                     onChange={(e) => setPortalPassword(e.target.value)}
                     autoFocus
                   />
-                  <p className="text-sm text-muted-foreground">
-                    This password will be used to access their role-specific
+                 
+                  
+                  <div className="text-sm text-muted-foreground">
+                     {selectedStaff?.password ? <Badge variant="destructive" className=" animate-pulse">The user has password set already</Badge> : null}{" "}
+                    You can leave the field blunk to stop changing it and just approve hime. This password will be used to access their role-specific
                     portal
-                  </p>
+                  </div>
                 </div>
               </div>
               <DialogFooter>
@@ -4120,19 +4108,14 @@ const AdminPortal = () => {
                   Cancel
                 </Button>
                 <Button
-                  onClick={approveStaffWithPassword}
-                  disabled={!portalPassword.trim()}
-                >
-                  <Lock className="h-4 w-4" />
-                  Assign Password
-                </Button>
-                <Button
-                  onClick={approveStaffWithPassword}
-                  // disabled={!portalPassword.trim()}
+                  onClick={()=>approveStaff.mutate()}
+                  
                 >
                   <UserCheck className="h-4 w-4" />
-                  Approve
+                  {portalPassword.trim() ? "Assign Password & Approve" : "Approve"}
+                   
                 </Button>
+               
               </DialogFooter>
             </DialogContent>
           </Dialog>

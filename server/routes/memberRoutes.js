@@ -104,13 +104,13 @@ router.put("/approve/:memberId", async (req, res) => {
 router.put("/reject/:memberId", async (req, res) => {
   try {
     const { memberId } = req.params;
-    const { userRole } = req.user;
+    const { userRole, userId  } = req.user;
     const allowedRoles = ["super_admin", "admin"];
 
     if (!allowedRoles.includes(userRole)) {
       return res
         .status(403)
-        .json({ error: "You don't have permissions to approve a member!" });
+        .json({ error: "You don't have permissions to reject a member!" });
     }
 
     await prisma.member.update({
@@ -122,6 +122,13 @@ router.put("/reject/:memberId", async (req, res) => {
             status: "inactive",
           },
         },
+      },
+    });
+    await tx.memberApproval.create({
+      data: {
+        approvalType: "registration",
+        memberId: memberId,
+        approverId: userId,
       },
     });
     res.status(200).json({ success: true });
