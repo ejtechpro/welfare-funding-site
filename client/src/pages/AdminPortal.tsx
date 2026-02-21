@@ -233,14 +233,7 @@ const AdminPortal = () => {
     }
     return [];
   }, [staffs]);
-  const approvedStaff = useMemo(() => {
-    if (staffs.data) {
-      return staffs?.data.filter(
-        (s) => s.userRole != "user" && s.approval === "approved",
-      );
-    }
-    return [];
-  }, [staffs]);
+  
 
   //!MUTATIONS
    const approveMember = useMutation({
@@ -304,8 +297,9 @@ const AdminPortal = () => {
 
   const approveStaff = useMutation({
     mutationFn: ()=> approveStaffWithPwd({
-      userId: selectedStaff && selectedStaff.id,
-      password: portalPassword
+      userId:  selectedStaff?.id,
+      password: portalPassword,
+      oldPassword: selectedStaff?.password
     }),
     onSuccess: async (data: any) => {
       if (data?.success) {
@@ -3062,9 +3056,7 @@ const AdminPortal = () => {
                   <CardContent>
                     <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
                       <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-blue-200 dark:border-blue-800 shadow-sm hover:shadow-md transition-shadow">
-                        <ManualPaymentEntry
-                          onSuccess={fetchPendingRegistrations}
-                        />
+                        <ManualPaymentEntry/>
                       </div>
                       <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-blue-200 dark:border-blue-800 shadow-sm hover:shadow-md transition-shadow">
                         <ExpenditureForm

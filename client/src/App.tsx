@@ -19,6 +19,7 @@ import { AuthRoute } from "./controls/AuthRoute ";
 import { RoleRoute } from "./controls/RoleRoute";
 import { UserRole } from "./types";
 import { AuthProvider } from "./hooks/useAuth";
+import Maintenance from "./pages/Maintenance";
 
 const queryClient = new QueryClient();
 
@@ -49,11 +50,11 @@ const App = () => (
               />
             }
           >
-            <Route path="/coordinator" element={<CoordinatorPortal />} />
-            <Route
+            <Route path="/coordinator" element={<Maintenance />} />
+            {/* <Route
               path="/general-coordinator"
               element={<CoordinatorPortal />}
-            />
+            /> */}
           </Route>
 
           <Route

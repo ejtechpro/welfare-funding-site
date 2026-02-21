@@ -11,7 +11,7 @@ const Maintenance = () => {
       {/* Main Content */}
       <div className="relative z-10 flex flex-col items-center text-center max-w-md">
         {/* Icon */}
-        <div className="bg-white bg-opacity-20 rounded-full p-6 mb-6 shadow-lg animate-bounce">
+        <div className="bg-white bg-opacity-20 rounded-full p-6 mb-6 shadow-lg">
           <WatchIcon className="w-14 h-14 text-white" />
         </div>
 
@@ -24,7 +24,7 @@ const Maintenance = () => {
         <p className="text-white/90 mb-6">
           Our system is currently undergoing scheduled maintenance.
           <br />
-          We appreciate your patience and will be back online shortly!
+          We appreciate your patience and will be back online soon!
         </p>
 
         {/* Retry Button */}

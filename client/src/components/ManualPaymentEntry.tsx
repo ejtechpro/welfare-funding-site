@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,8 +19,10 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, Plus, DollarSign } from "lucide-react";
-import { useStaffAuth } from "@/hooks/useStaffAuth";
 import { useAuth } from "@/hooks/useAuth";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { getMembersOptions } from "@/queries/memberQueryOptions";
+import { manualPayment } from "@/api/member";
 
 interface Member {
   id: string;
@@ -33,10 +35,10 @@ interface Member {
 // Define allowed payment types as constants for consistency
 const PAYMENT_TYPES = {
   MONTHLY: "monthly_contribution",
-  CASES: "cases",
-  PROJECTS: "projects",
+  CASES: "case",
+  PROJECTS: "project",
   REGISTRATION: "registration",
-  OTHERS: "others",
+  OTHERS: "other",
 } as const;
 
 const PAYMENT_TYPE_LABELS = {
@@ -47,85 +49,66 @@ const PAYMENT_TYPE_LABELS = {
   [PAYMENT_TYPES.OTHERS]: "Others",
 } as const;
 
-export const ManualPaymentEntry = ({
-  onSuccess,
-}: {
-  onSuccess?: () => void;
-}) => {
+export const ManualPaymentEntry = () => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
-  console.log("ManualPaymentEntry initialized with:", {
-    user: user ? `${user.firstName} ${user?.lastName} (${user.role})` : "None",
-    authUser: user ? `${user.email}` : "None",
-  });
   const [amount, setAmount] = useState("");
   const [selectedMember, setSelectedMember] = useState("");
-  const [members, setMembers] = useState<Member[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [loadingMembers, setLoadingMembers] = useState(false);
-  const [paymentType, setPaymentType] = useState<string>(PAYMENT_TYPES.MONTHLY);
+  const [contributionType, setPaymentType] = useState<string>(
+    PAYMENT_TYPES.MONTHLY,
+  );
   const [referenceNumber, setReferenceNumber] = useState("");
   const [paymentDate, setPaymentDate] = useState(
     new Date().toISOString().split("T")[0],
   );
 
-  const fetchMembers = async () => {
-    setLoadingMembers(true);
-    try {
-      const { data, error } = await supabase
-        .from("membership_registrations")
-        .select("id, first_name, last_name, tns_number, email")
-        .eq("registration_status", "approved")
-        .order("first_name");
+  const members = useQuery(getMembersOptions());
 
-      if (error) throw error;
-      setMembers(data || []);
-    } catch (error) {
-      console.error("Error fetching members:", error);
-      toast.error("Failed to fetch members");
-    } finally {
-      setLoadingMembers(false);
+  const approvedMembers = useMemo(() => {
+    if (members?.data) {
+      return members?.data.filter((m) => m.registrationStatus === "approved");
     }
-  };
+    return [];
+  }, [members]);
 
-  const testAuth = async () => {
-    const isSuperAdmin = user?.email === "brianokutu@gmail.com";
-    const hasStaffRole = user && ["Admin", "Treasurer"].includes(user.role);
-
-    console.log("🔍 Authentication Test Results:", {
-      userEmail: user?.email,
-      isSuperAdmin,
-      user: user
-        ? {
-            name: `${user.firstName} ${user?.lastName}`,
-            role: user.role,
-            hasPermission: hasStaffRole,
-          }
-        : "None",
-      canAccessManualPayment: isSuperAdmin || hasStaffRole,
-    });
-
-    if (isSuperAdmin) {
-      toast.success("✅ Super Admin Access Granted", {
-        description: "You have super admin privileges (brianokutu@gmail.com)",
-      });
-    } else if (hasStaffRole) {
-      toast.success(`✅ Staff Access Granted (${user.role})`, {
-        description:
-          "You have Admin/Treasurer privileges for manual payment entry",
-      });
-    } else {
-      toast.error("❌ Access Denied", {
-        description:
-          "You need Admin/Treasurer role or super admin access (brianokutu@gmail.com)",
-      });
-    }
-  };
+  const makeManualPayment = useMutation({
+    mutationFn: (data: any) => manualPayment(data),
+    onSuccess: async (data: any) => {
+      if (data?.success) {
+        await queryClient.invalidateQueries({ queryKey: ["members"] });
+        toast.success(`Payment completed successfully!`, {
+          description: `Your payments have been received successfully!`,
+          duration: 5000,
+        });
+        // Reset form
+        setAmount("");
+        setSelectedMember("");
+        setReferenceNumber("");
+        setPaymentDate(new Date().toISOString());
+        setPaymentType(PAYMENT_TYPES.MONTHLY);
+      }
+    },
+    onError: (error: any) => {
+      if (error?.response?.data?.error) {
+        toast.error("Error occurred", {
+          description: error?.response?.data?.error,
+          duration: 7000,
+        });
+      } else {
+        console.log(error)
+        toast.error("Error occurred", {
+          description: "Something went wrong, during processing!",
+          duration: 7000,
+        });
+      }
+    },
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!selectedMember || !amount || !paymentDate || !paymentType) {
+    if (!selectedMember || !amount || !paymentDate || !contributionType) {
       toast.error("Please fill in all required fields");
       return;
     }
@@ -137,226 +120,142 @@ export const ManualPaymentEntry = ({
 
     // Validate payment type is one of the allowed types
     const allowedPaymentTypes = Object.values(PAYMENT_TYPES);
-    if (!allowedPaymentTypes.includes(paymentType as any)) {
+    if (!allowedPaymentTypes.includes(contributionType as any)) {
       toast.error("Invalid payment type selected");
       return;
     }
 
     // Check staff permissions - allow Admin, Treasurer, and super admin
-    const isSuperAdmin = user?.email === "brianokutu@gmail.com";
-    const hasStaffRole = user && ["Admin", "Treasurer"].includes(user.role);
+    const allowedRole =
+      user && ["super_admin", "admin", "treasurer"].includes(user.userRole);
 
-    if (!isSuperAdmin && !hasStaffRole) {
+    if (!allowedRole) {
       toast.error(
         `Access denied. Admin/Treasurer role required or super admin access.`,
       );
       return;
     }
 
-    console.log("🔐 Access granted:", {
-      isSuperAdmin,
-      hasStaffRole: hasStaffRole ? user.role : "None",
-      userEmail: user?.email,
-    });
+  
+    const paymentData = {
+      action: "manual_payment",
+      memberId: selectedMember,
+      amount: parseFloat(amount),
+      contributionType,
+      paymentDate,
+      referenceNumber,
+    };
+    makeManualPayment.mutate(paymentData);
 
-    setIsLoading(true);
+    // try {
+    //   // Direct insert to contributions table
+    //   const contributionData = {
+    //     member_id: selectedMember,
+    //     amount: parseFloat(amount),
+    //     contribution_date: paymentDate,
+    //     contribution_type: contributionType,
+    //     status: "confirmed",
+    //   };
 
-    try {
-      // Prepare staff user info (handle super admin case)
-      const staffInfo =
-        isSuperAdmin && !user
-          ? {
-              id: user.id || "super-admin",
-              name: user.email || "Super Admin",
-              role: "Super Admin",
-            }
-          : {
-              id: user.id,
-              name: `${user.firstName} ${user?.lastName}`,
-              role: user.role,
-            };
+    //   console.log("💾 Inserting contribution directly:", contributionData);
 
-      const paymentData = {
-        action: "manual_payment",
-        memberId: selectedMember,
-        amount: parseFloat(amount),
-        paymentType,
-        paymentDate,
-        referenceNumber,
-        user: staffInfo,
-      };
+    //   const { data: contributionResult, error: contributionError } =
+    //     await supabase
+    //       .from("contributions")
+    //       .insert(contributionData)
+    //       .select()
+    //       .single();
 
-      console.log("🚀 Recording manual payment:", paymentData);
+    //   if (contributionError) {
+    //     console.error("❌ Contribution insert failed:", contributionError);
+    //     throw contributionError;
+    //   }
 
-      // Use edge function with service role for guaranteed database access
-      const response = await fetch(
-        "https://wfqgnshhlfuznabweofj.supabase.co/functions/v1/record-transaction",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization:
-              "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndmcWduc2hobGZ1em5hYndlb2ZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUyNTE0MzgsImV4cCI6MjA3MDgyNzQzOH0.EsPr_ypf7B1PXTWmjS2ZGXDVBe7HeNHDWsvJcgQpkLA",
-            apikey:
-              "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndmcWduc2hobGZ1em5hYndlb2ZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUyNTE0MzgsImV4cCI6MjA3MDgyNzQzOH0.EsPr_ypf7B1PXTWmjS2ZGXDVBe7HeNHDWsvJcgQpkLA",
-          },
-          body: JSON.stringify(paymentData),
-        },
-      );
+    //   console.log(
+    //     "✅ Contribution recorded via fallback:",
+    //     contributionResult,
+    //   );
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("❌ Edge function failed:", response.status, errorText);
-        throw new Error(`Payment recording failed: ${errorText}`);
-      }
+    //   // Create MPESA audit record (optional - don't fail if this fails)
+    //   try {
+    //     const mpesaData = {
+    //       member_id: selectedMember,
+    //       amount: parseFloat(amount),
+    //       phone_number: "Manual Entry (Fallback)",
+    //       mpesa_receipt_number: referenceNumber || `MANUAL_${Date.now()}`,
+    //       status: "completed",
+    //       result_code: "0",
+    //       result_desc: "Manual payment entry - fallback method",
+    //       transaction_date: new Date(paymentDate).toISOString(),
+    //     };
 
-      const result = await response.json();
-      console.log("✅ Payment recorded successfully:", result);
+    //     console.log("💾 Creating MPESA audit record:", mpesaData);
 
-      if (!result.success) {
-        throw new Error(result.error || "Payment recording failed");
-      }
+    //     const { error: mpesaError } = await supabase
+    //       .from("mpesa_payments")
+    //       .insert(mpesaData);
 
-      // Show success message
-      toast.success("✅ Manual payment recorded successfully!", {
-        description: `Amount: KES ${parseFloat(amount).toLocaleString()} • Member: ${members.find((m) => m.id === selectedMember)?.first_name} ${members.find((m) => m.id === selectedMember)?.last_name}`,
-        duration: 6000,
-      });
+    //     if (mpesaError) {
+    //       console.warn(
+    //         "⚠️ MPESA audit record failed (non-critical):",
+    //         mpesaError,
+    //       );
+    //     } else {
+    //       console.log("✅ MPESA audit record created via fallback");
+    //     }
+    //   } catch (auditError) {
+    //     console.warn("⚠️ MPESA audit failed (non-critical):", auditError);
+    //   }
 
-      // Reset form
-      setAmount("");
-      setSelectedMember("");
-      setReferenceNumber("");
-      setPaymentDate(new Date().toISOString().split("T")[0]);
-      setPaymentType(PAYMENT_TYPES.MONTHLY);
+    //   // Success via fallback
+    //   toast.success("✅ Payment recorded successfully!", {
+    //     description: `Amount: KES ${parseFloat(amount).toLocaleString()} • Recorded via fallback method`,
+    //     duration: 6000,
+    //   });
 
-      // Refresh AdminPortal data
-      console.log("🔄 Refreshing AdminPortal data...");
-      if (onSuccess) {
-        // Wait a moment for database to propagate then refresh
-        setTimeout(() => {
-          onSuccess();
-          console.log("✅ AdminPortal data refresh triggered");
-        }, 1000);
-      }
-    } catch (error: any) {
-      console.error("🚨 Edge function failed:", error);
+    //   // Reset form
+    //   setAmount("");
+    //   setSelectedMember("");
+    //   setReferenceNumber("");
+    //   setPaymentDate(new Date().toISOString().split("T")[0]);
+    //   setPaymentType(PAYMENT_TYPES.MONTHLY);
 
-      // Try fallback direct database insert
-      console.log("⚠️ Attempting fallback direct database insert...");
+    //   // Refresh AdminPortal data
+    //   console.log("🔄 Refreshing AdminPortal data after fallback...");
+    //   if (onSuccess) {
+    //     setTimeout(() => {
+    //       onSuccess();
+    //       console.log("✅ AdminPortal data refresh triggered after fallback");
+    //     }, 1000);
+    //   }
+    // } catch (fallbackError: any) {
+    //   console.error("❌ Fallback also failed:", fallbackError);
 
-      try {
-        // Direct insert to contributions table
-        const contributionData = {
-          member_id: selectedMember,
-          amount: parseFloat(amount),
-          contribution_date: paymentDate,
-          contribution_type: paymentType,
-          status: "confirmed",
-        };
+    //   let errorMessage = "Failed to record payment";
 
-        console.log("💾 Inserting contribution directly:", contributionData);
+    //   if (fallbackError.message) {
+    //     if (
+    //       fallbackError.message.includes("permission denied") ||
+    //       fallbackError.message.includes("RLS")
+    //     ) {
+    //       errorMessage =
+    //         "Permission denied - please ensure you're logged in as an authorized staff member";
+    //     } else if (fallbackError.message.includes("Failed to fetch")) {
+    //       errorMessage =
+    //         "Network error - please check your connection and try again";
+    //     } else if (fallbackError.message.includes("timeout")) {
+    //       errorMessage = "Request timed out - please try again";
+    //     } else {
+    //       errorMessage = fallbackError.message;
+    //     }
+    //   }
 
-        const { data: contributionResult, error: contributionError } =
-          await supabase
-            .from("contributions")
-            .insert(contributionData)
-            .select()
-            .single();
-
-        if (contributionError) {
-          console.error("❌ Contribution insert failed:", contributionError);
-          throw contributionError;
-        }
-
-        console.log(
-          "✅ Contribution recorded via fallback:",
-          contributionResult,
-        );
-
-        // Create MPESA audit record (optional - don't fail if this fails)
-        try {
-          const mpesaData = {
-            member_id: selectedMember,
-            amount: parseFloat(amount),
-            phone_number: "Manual Entry (Fallback)",
-            mpesa_receipt_number: referenceNumber || `MANUAL_${Date.now()}`,
-            status: "completed",
-            result_code: "0",
-            result_desc: "Manual payment entry - fallback method",
-            transaction_date: new Date(paymentDate).toISOString(),
-          };
-
-          console.log("💾 Creating MPESA audit record:", mpesaData);
-
-          const { error: mpesaError } = await supabase
-            .from("mpesa_payments")
-            .insert(mpesaData);
-
-          if (mpesaError) {
-            console.warn(
-              "⚠️ MPESA audit record failed (non-critical):",
-              mpesaError,
-            );
-          } else {
-            console.log("✅ MPESA audit record created via fallback");
-          }
-        } catch (auditError) {
-          console.warn("⚠️ MPESA audit failed (non-critical):", auditError);
-        }
-
-        // Success via fallback
-        toast.success("✅ Payment recorded successfully!", {
-          description: `Amount: KES ${parseFloat(amount).toLocaleString()} • Recorded via fallback method`,
-          duration: 6000,
-        });
-
-        // Reset form
-        setAmount("");
-        setSelectedMember("");
-        setReferenceNumber("");
-        setPaymentDate(new Date().toISOString().split("T")[0]);
-        setPaymentType(PAYMENT_TYPES.MONTHLY);
-
-        // Refresh AdminPortal data
-        console.log("🔄 Refreshing AdminPortal data after fallback...");
-        if (onSuccess) {
-          setTimeout(() => {
-            onSuccess();
-            console.log("✅ AdminPortal data refresh triggered after fallback");
-          }, 1000);
-        }
-      } catch (fallbackError: any) {
-        console.error("❌ Fallback also failed:", fallbackError);
-
-        let errorMessage = "Failed to record payment";
-
-        if (fallbackError.message) {
-          if (
-            fallbackError.message.includes("permission denied") ||
-            fallbackError.message.includes("RLS")
-          ) {
-            errorMessage =
-              "Permission denied - please ensure you're logged in as an authorized staff member";
-          } else if (fallbackError.message.includes("Failed to fetch")) {
-            errorMessage =
-              "Network error - please check your connection and try again";
-          } else if (fallbackError.message.includes("timeout")) {
-            errorMessage = "Request timed out - please try again";
-          } else {
-            errorMessage = fallbackError.message;
-          }
-        }
-
-        toast.error(`❌ ${errorMessage}`, {
-          description:
-            "Both primary and fallback methods failed. Please contact support if this persists.",
-          duration: 8000,
-        });
-      }
-    } finally {
-      setIsLoading(false);
-    }
+    //   toast.error(`❌ ${errorMessage}`, {
+    //     description:
+    //       "Both primary and fallback methods failed. Please contact support if this persists.",
+    //     duration: 8000,
+    //   });
+    // }
   };
 
   return (
@@ -377,16 +276,6 @@ export const ManualPaymentEntry = ({
             Payment Types: Monthly contribution • Cases • Projects •
             Registration • Others
           </span>
-          <br />
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={testAuth}
-            className="mt-2 text-xs"
-          >
-            Test Auth (Debug)
-          </Button>
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -396,23 +285,29 @@ export const ManualPaymentEntry = ({
             <Select
               value={selectedMember}
               onValueChange={setSelectedMember}
-              onOpenChange={(open) => {
-                if (open && members.length === 0) fetchMembers();
-              }}
+              onOpenChange={(open) => {}}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Choose a member" />
               </SelectTrigger>
               <SelectContent>
-                {loadingMembers ? (
+                {!approvedMembers ? (
                   <SelectItem value="loading" disabled>
                     Loading members...
                   </SelectItem>
                 ) : (
-                  members.map((member) => (
+                  approvedMembers.map((member) => (
                     <SelectItem key={member.id} value={member.id}>
-                      {member.tns_number} - {member.first_name}{" "}
-                      {member.last_name}
+                      <span className=" capitalize font-bold">
+                        {member.tnsNumber}
+                      </span>{" "}
+                      -{" "}
+                      <span className="capitalize">
+                        {member.user.firstName}
+                      </span>{" "}
+                      <span className=" capitalize">
+                        {member.user.lastName}
+                      </span>
                     </SelectItem>
                   ))
                 )}
@@ -435,9 +330,9 @@ export const ManualPaymentEntry = ({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="paymentType">Payment Type *</Label>
+            <Label htmlFor="contributionType">Payment Type *</Label>
             <Select
-              value={paymentType}
+              value={contributionType}
               onValueChange={(value: string) => setPaymentType(value)}
             >
               <SelectTrigger>
@@ -481,9 +376,9 @@ export const ManualPaymentEntry = ({
           <Button
             type="submit"
             className="w-full"
-            disabled={isLoading || !selectedMember || !amount}
+            disabled={makeManualPayment.isPending || !selectedMember || !amount}
           >
-            {isLoading ? (
+            {makeManualPayment.isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Recording Payment...

@@ -100,7 +100,7 @@ router.get("/staffs", async (req, res) => {
 
 router.post("/approve", async (req, res) => {
   try {
-    const { userId, password } = req.body;
+    const { userId, password, oldPassword } = req.body;
     const { userRole, id: uid, isVerified } = req.user;
 
     const allowedRoles = ["super_admin", "admin"];
@@ -116,6 +116,13 @@ router.post("/approve", async (req, res) => {
     //   });
     // }
 
+    let hashedPassword = null;
+    if (typeof password === "string" && password !== "") {
+      hashedPassword = await bcrypt.hash(password, 10);
+    } else {
+      hashedPassword = oldPassword;
+    }
+
     const tx = await prisma.$transaction(async (tx) => {
       await tx.user.update({
         where: { id: userId },
@@ -123,7 +130,7 @@ router.post("/approve", async (req, res) => {
           approval: "approved",
           status: "active",
           // paymentStatus: "paid",
-          password: password == "" ? password : null,
+          password: hashedPassword,
         },
       });
       await tx.staffApproval.create({
@@ -145,7 +152,7 @@ router.post("/approve", async (req, res) => {
 router.post("/reject", async (req, res) => {
   try {
     const { userId } = req.body;
-   
+
     const { userRole, id: uid } = req.user;
     const allowedRoles = ["super_admin", "admin"];
 
@@ -170,7 +177,7 @@ router.post("/reject", async (req, res) => {
     });
     res.status(200).json({ success: true });
   } catch (error) {
-    console.log(error)
+    console.log(error);
     res.status(500).json({ error: "Internal server error!" });
   }
 });

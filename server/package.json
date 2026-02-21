@@ -25,7 +25,8 @@
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.0.2",
     "mysql2": "^3.17.1",
-    "nodemon": "^3.1.11",
+    "node-cron": "^4.2.1",
+    "nodemon": "^3.1.14",
     "socket.io": "^4.8.3",
     "ua-parser-js": "^2.0.9"
   },

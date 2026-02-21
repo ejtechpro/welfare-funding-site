@@ -65,6 +65,10 @@ router.post("/new", upload.any(), async (req, res) => {
         },
       });
 
+      const probationDays = 92;
+      const probationEndDate = new Date();
+      probationEndDate.setDate(probationEndDate.getDate() + probationDays);
+
       const member = await tx.member.create({
         data: {
           userId: user.id,
@@ -77,7 +81,9 @@ router.post("/new", upload.any(), async (req, res) => {
           membershipType:
             memberInfo?.maritalStatus == "married" ? "family" : "individual",
           paymentStatus: "pending",
-          mpesaPaymentPeference: null,
+          mpesaPaymentReference: transactionId,
+          probationEndDate: probationEndDate,
+          maturityStatus: "probation",
         },
       });
 

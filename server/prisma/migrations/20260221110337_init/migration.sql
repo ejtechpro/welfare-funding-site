@@ -6,7 +6,7 @@ CREATE TABLE `users` (
     `email` VARCHAR(191) NOT NULL,
     `phone` VARCHAR(191) NULL,
     `password` VARCHAR(191) NULL,
-    `role` ENUM('super_admin', 'admin', 'user', 'member', 'advisory_committee', 'general_coordinator', 'area_coordinator', 'secretary', 'customer_service_personnel', 'organizing_secretary', 'treasurer', 'auditor') NOT NULL DEFAULT 'user',
+    `userRole` ENUM('super_admin', 'admin', 'user', 'member', 'advisory_committee', 'general_coordinator', 'area_coordinator', 'secretary', 'customer_service_personnel', 'organizing_secretary', 'treasurer', 'auditor') NOT NULL DEFAULT 'user',
     `requestedRole` ENUM('super_admin', 'admin', 'user', 'member', 'advisory_committee', 'general_coordinator', 'area_coordinator', 'secretary', 'customer_service_personnel', 'organizing_secretary', 'treasurer', 'auditor') NULL,
     `assignedArea` VARCHAR(191) NULL,
     `approval` ENUM('pending', 'rejected', 'approved') NOT NULL DEFAULT 'pending',
@@ -43,44 +43,104 @@ CREATE TABLE `user_sessions` (
 -- CreateTable
 CREATE TABLE `contributions` (
     `id` VARCHAR(191) NOT NULL,
-    `memberId` VARCHAR(191) NOT NULL,
-    `amount` DOUBLE NOT NULL DEFAULT 0.0,
-    `contributionType` ENUM('monthly_contribution', 'cases', 'project', 'registration', 'other') NOT NULL,
-    `contributionDate` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `month` INTEGER NULL,
-    `year` INTEGER NULL,
-    `projectId` VARCHAR(191) NULL,
-    `caseId` VARCHAR(191) NULL,
-    `status` ENUM('paid', 'pending', 'failed') NOT NULL DEFAULT 'pending',
+    `amount` DECIMAL(65, 30) NOT NULL,
+    `contributionType` ENUM('monthly_contribution', 'case', 'project', 'registration', 'other') NOT NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
+    `projectId` VARCHAR(191) NULL,
+    `caseId` VARCHAR(191) NULL,
 
-    INDEX `contributions_memberId_idx`(`memberId`),
-    INDEX `contributions_projectId_idx`(`projectId`),
-    INDEX `contributions_caseId_idx`(`caseId`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
-CREATE TABLE `contact_submission` (
+CREATE TABLE `tns_projects` (
     `id` VARCHAR(191) NOT NULL,
     `name` VARCHAR(191) NOT NULL,
-    `email` VARCHAR(191) NOT NULL,
-    `phone` VARCHAR(191) NULL,
-    `subject` VARCHAR(191) NOT NULL,
-    `message` VARCHAR(191) NOT NULL,
-    `status` ENUM('pending', 'read', 'resolved') NOT NULL DEFAULT 'pending',
+    `description` TEXT NULL,
+    `status` ENUM('pending', 'completed', 'cancelled') NOT NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `tns_cases` (
+    `id` VARCHAR(191) NOT NULL,
+    `name` VARCHAR(191) NOT NULL,
+    `description` TEXT NULL,
+    `status` ENUM('in_progress', 'completed', 'cancelled') NOT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `transactions` (
+    `id` VARCHAR(191) NOT NULL,
+    `transactionMethod` ENUM('mpesa', 'cash') NOT NULL,
+    `transactionType` ENUM('contribution', 'disbursement') NOT NULL,
+    `amount` DECIMAL(65, 30) NOT NULL,
+    `transactionStatus` ENUM('completed', 'pending', 'failed') NOT NULL DEFAULT 'pending',
+    `memberId` VARCHAR(191) NOT NULL,
+    `transactedById` VARCHAR(191) NULL,
+    `contributionId` VARCHAR(191) NULL,
+    `disbursementId` VARCHAR(191) NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `member_balances` (
+    `id` VARCHAR(191) NOT NULL,
+    `memberId` VARCHAR(191) NOT NULL,
+    `year` INTEGER NOT NULL,
+    `month` INTEGER NOT NULL,
+    `prepaid` DECIMAL(65, 30) NOT NULL DEFAULT 0,
+    `due` DECIMAL(65, 30) NOT NULL DEFAULT 0,
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `members` (
+    `id` VARCHAR(191) NOT NULL,
+    `tnsNumber` VARCHAR(191) NULL,
+    `alternativePhone` VARCHAR(191) NULL,
+    `country` VARCHAR(191) NOT NULL,
+    `areaOfResidence` VARCHAR(191) NOT NULL,
+    `state` VARCHAR(191) NULL,
+    `zipCode` VARCHAR(191) NULL,
+    `idNumber` VARCHAR(191) NOT NULL,
+    `sex` VARCHAR(191) NOT NULL,
+    `maritalStatus` ENUM('married', 'single', 'divorced', 'widowed') NOT NULL,
+    `emergencyContactName` VARCHAR(191) NULL,
+    `emergencyContactPhone` VARCHAR(191) NULL,
+    `membershipType` ENUM('basic', 'individual', 'family') NOT NULL DEFAULT 'basic',
+    `registrationStatus` ENUM('pending', 'rejected', 'approved') NOT NULL DEFAULT 'pending',
+    `paymentStatus` ENUM('completed', 'pending', 'failed') NULL,
+    `maturityStatus` ENUM('probation', 'matured') NULL,
+    `probationEndDate` DATETIME(3) NULL,
+    `mpesaPaymentReference` VARCHAR(191) NULL,
+    `userId` VARCHAR(191) NOT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    UNIQUE INDEX `members_tnsNumber_key`(`tnsNumber`),
+    UNIQUE INDEX `members_idNumber_key`(`idNumber`),
+    UNIQUE INDEX `members_userId_key`(`userId`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
 CREATE TABLE `disbursements` (
     `id` VARCHAR(191) NOT NULL,
-    `memberId` VARCHAR(191) NOT NULL,
-    `amount` DOUBLE NOT NULL,
+    `amount` DECIMAL(65, 30) NOT NULL,
     `reason` TEXT NULL,
     `disbursementType` ENUM('regular', 'emergency', 'bereavement', 'other') NULL,
     `status` ENUM('pending', 'approved', 'rejected', 'paid') NOT NULL DEFAULT 'pending',
@@ -90,7 +150,6 @@ CREATE TABLE `disbursements` (
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
-    INDEX `disbursements_memberId_idx`(`memberId`),
     INDEX `disbursements_status_idx`(`status`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -113,33 +172,34 @@ CREATE TABLE `disbursement_documents` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
-CREATE TABLE `members` (
+CREATE TABLE `mpesa_transactions` (
     `id` VARCHAR(191) NOT NULL,
-    `tnsNumber` VARCHAR(191) NULL,
-    `alternativePhone` VARCHAR(191) NULL,
-    `country` VARCHAR(191) NOT NULL,
-    `areaOfResidence` VARCHAR(191) NOT NULL,
-    `state` VARCHAR(191) NULL,
-    `zipCode` VARCHAR(191) NULL,
-    `idNumber` VARCHAR(191) NOT NULL,
-    `sex` VARCHAR(191) NOT NULL,
-    `maritalStatus` ENUM('married', 'single', 'divorced', 'widowed') NOT NULL,
-    `emergencyContactName` VARCHAR(191) NULL,
-    `emergencyContactPhone` VARCHAR(191) NULL,
-    `membershipType` ENUM('basic', 'individual', 'family') NOT NULL DEFAULT 'basic',
-    `registrationStatus` ENUM('pending', 'rejected', 'approved') NOT NULL DEFAULT 'pending',
-    `paymentStatus` ENUM('paid', 'pending') NULL,
-    `maturityStatus` ENUM('probation', 'matured', 'active') NULL,
-    `daysToMaturity` INTEGER NULL,
-    `probationEndDate` DATETIME(3) NULL,
-    `mpesaPaymentPeference` VARCHAR(191) NULL,
-    `userId` VARCHAR(191) NOT NULL,
+    `transactionId` VARCHAR(191) NOT NULL,
+    `phone` VARCHAR(191) NOT NULL,
+    `checkoutRequestId` VARCHAR(191) NULL,
+    `merchantRequestId` VARCHAR(191) NULL,
+    `mpesaReceiptNumber` VARCHAR(191) NULL,
+    `resultCode` VARCHAR(191) NULL,
+    `resultDesc` VARCHAR(191) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
-    UNIQUE INDEX `members_tnsNumber_key`(`tnsNumber`),
-    UNIQUE INDEX `members_idNumber_key`(`idNumber`),
-    UNIQUE INDEX `members_userId_key`(`userId`),
+    UNIQUE INDEX `mpesa_transactions_transactionId_key`(`transactionId`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `contact_submission` (
+    `id` VARCHAR(191) NOT NULL,
+    `name` VARCHAR(191) NOT NULL,
+    `email` VARCHAR(191) NOT NULL,
+    `phone` VARCHAR(191) NULL,
+    `subject` VARCHAR(191) NOT NULL,
+    `message` VARCHAR(191) NOT NULL,
+    `status` ENUM('pending', 'read', 'resolved') NOT NULL DEFAULT 'pending',
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -187,14 +247,6 @@ CREATE TABLE `member_children` (
     `dob` VARCHAR(191) NOT NULL,
     `age` VARCHAR(191) NOT NULL,
     `birthCertificate` VARCHAR(191) NULL,
-
-    PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- CreateTable
-CREATE TABLE `payment_history` (
-    `id` VARCHAR(191) NOT NULL,
-    `memberId` VARCHAR(191) NOT NULL,
 
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -256,40 +308,25 @@ CREATE TABLE `monthly_expenses` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
-CREATE TABLE `mpesa_payments` (
+CREATE TABLE `member_approvals` (
     `id` VARCHAR(191) NOT NULL,
+    `approvalType` ENUM('registration', 'payment', 'loan', 'withdrawal', 'benefit', 'penalty', 'profile_update', 'user_status', 'termination') NOT NULL,
+    `comment` TEXT NULL,
+    `approverId` VARCHAR(191) NULL,
     `memberId` VARCHAR(191) NOT NULL,
-    `amount` DOUBLE NOT NULL,
-    `phoneNumber` VARCHAR(191) NOT NULL,
-    `checkoutRequestId` VARCHAR(191) NULL,
-    `merchantRequestId` VARCHAR(191) NULL,
-    `mpesaReceiptNumber` VARCHAR(191) NULL,
-    `resultCode` VARCHAR(191) NULL,
-    `resultDesc` VARCHAR(191) NULL,
-    `transactionDate` DATETIME(3) NULL,
-    `status` ENUM('pending', 'success', 'failed') NOT NULL DEFAULT 'pending',
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
-    INDEX `mpesa_payments_memberId_idx`(`memberId`),
-    INDEX `mpesa_payments_status_idx`(`status`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
-CREATE TABLE `member_balance` (
+CREATE TABLE `staff_approvals` (
     `id` VARCHAR(191) NOT NULL,
-
-    PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- CreateTable
-CREATE TABLE `member_approvals` (
-    `id` VARCHAR(191) NOT NULL,
-    `approvalType` ENUM('registration', 'payment', 'loan', 'withdrawal', 'benefit', 'penalty', 'profile_update', 'suspension', 'termination') NOT NULL,
-    `comment` TEXT NULL,
-    `approverId` VARCHAR(191) NOT NULL,
-    `memberId` VARCHAR(191) NOT NULL,
+    `approvalType` ENUM('registration', 'payment', 'loan', 'withdrawal', 'benefit', 'penalty', 'profile_update', 'user_status', 'termination') NOT NULL,
+    `comment` VARCHAR(191) NULL,
+    `userId` VARCHAR(191) NOT NULL,
+    `approverId` VARCHAR(191) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -320,16 +357,34 @@ CREATE TABLE `tasks` (
 ALTER TABLE `user_sessions` ADD CONSTRAINT `user_sessions_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `contributions` ADD CONSTRAINT `contributions_memberId_fkey` FOREIGN KEY (`memberId`) REFERENCES `members`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE `contributions` ADD CONSTRAINT `contributions_projectId_fkey` FOREIGN KEY (`projectId`) REFERENCES `tns_projects`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `disbursements` ADD CONSTRAINT `disbursements_memberId_fkey` FOREIGN KEY (`memberId`) REFERENCES `members`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE `contributions` ADD CONSTRAINT `contributions_caseId_fkey` FOREIGN KEY (`caseId`) REFERENCES `tns_cases`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `transactions` ADD CONSTRAINT `transactions_memberId_fkey` FOREIGN KEY (`memberId`) REFERENCES `members`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `transactions` ADD CONSTRAINT `transactions_transactedById_fkey` FOREIGN KEY (`transactedById`) REFERENCES `users`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `transactions` ADD CONSTRAINT `transactions_contributionId_fkey` FOREIGN KEY (`contributionId`) REFERENCES `contributions`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `transactions` ADD CONSTRAINT `transactions_disbursementId_fkey` FOREIGN KEY (`disbursementId`) REFERENCES `disbursements`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `member_balances` ADD CONSTRAINT `member_balances_memberId_fkey` FOREIGN KEY (`memberId`) REFERENCES `members`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `members` ADD CONSTRAINT `members_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `disbursement_documents` ADD CONSTRAINT `disbursement_documents_disbursementId_fkey` FOREIGN KEY (`disbursementId`) REFERENCES `disbursements`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `members` ADD CONSTRAINT `members_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE `mpesa_transactions` ADD CONSTRAINT `mpesa_transactions_transactionId_fkey` FOREIGN KEY (`transactionId`) REFERENCES `transactions`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `member_parents` ADD CONSTRAINT `member_parents_memberId_fkey` FOREIGN KEY (`memberId`) REFERENCES `members`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
@@ -339,9 +394,6 @@ ALTER TABLE `member_spouses` ADD CONSTRAINT `member_spouses_memberId_fkey` FOREI
 
 -- AddForeignKey
 ALTER TABLE `member_children` ADD CONSTRAINT `member_children_memberId_fkey` FOREIGN KEY (`memberId`) REFERENCES `members`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE `payment_history` ADD CONSTRAINT `payment_history_memberId_fkey` FOREIGN KEY (`memberId`) REFERENCES `members`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `member_files` ADD CONSTRAINT `member_files_memberId_fkey` FOREIGN KEY (`memberId`) REFERENCES `members`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
@@ -359,13 +411,16 @@ ALTER TABLE `member_settings` ADD CONSTRAINT `member_settings_memberId_fkey` FOR
 ALTER TABLE `beneficiaries` ADD CONSTRAINT `beneficiaries_memberId_fkey` FOREIGN KEY (`memberId`) REFERENCES `members`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `mpesa_payments` ADD CONSTRAINT `mpesa_payments_memberId_fkey` FOREIGN KEY (`memberId`) REFERENCES `members`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE `member_approvals` ADD CONSTRAINT `member_approvals_approverId_fkey` FOREIGN KEY (`approverId`) REFERENCES `users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE `member_approvals` ADD CONSTRAINT `member_approvals_approverId_fkey` FOREIGN KEY (`approverId`) REFERENCES `users`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `member_approvals` ADD CONSTRAINT `member_approvals_memberId_fkey` FOREIGN KEY (`memberId`) REFERENCES `members`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `staff_approvals` ADD CONSTRAINT `staff_approvals_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `staff_approvals` ADD CONSTRAINT `staff_approvals_approverId_fkey` FOREIGN KEY (`approverId`) REFERENCES `users`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `tasks` ADD CONSTRAINT `tasks_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;

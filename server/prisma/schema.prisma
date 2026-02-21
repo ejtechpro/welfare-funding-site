@@ -34,6 +34,7 @@ model User {
   approvalsReceived StaffApproval[] @relation("approved_received")
   // approvals this user GAVE
   approvalsGiven    StaffApproval[] @relation("approver_given")
+  transactedBy      Transaction[]   @relation("transactedBy")
 
   @@index([email])
   @@map("users")
@@ -56,45 +57,118 @@ model Session {
 }
 
 model Contribution {
-  id               String             @id @default(ulid())
-  memberId         String
-  member           Member             @relation(fields: [memberId], references: [id])
-  amount           Float              @default(0.0)
-  contributionType PaymentTypes
-  contributionDate DateTime           @default(now())
-  month            Int?
-  year             Int?
-  projectId        String? // only if type = project
-  caseId           String? // only if type = cases
-  status           ContributionStatus @default(pending)
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
+  id               String           @id @default(ulid())
+  amount           Decimal
+  contributionType ContributionType
+  project          Project?         @relation(fields: [projectId], references: [id]) // only if type = cases
+  case             Case?            @relation(fields: [caseId], references: [id]) // only if type = cases
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  transactions     Transaction[]
+  projectId        String?
+  caseId           String?
 
-  @@index([memberId])
-  @@index([projectId])
-  @@index([caseId])
   @@map("contributions")
 }
 
-model ContactSubmission {
-  id        String        @id @default(ulid())
-  name      String
-  email     String
-  phone     String?
-  subject   String
-  message   String
-  status    ContactStatus @default(pending)
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+model Project {
+  id            String         @id @default(ulid())
+  name          String
+  description   String?        @db.Text
+  status        ProjectStatus //in_progress | completed | cancelled
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  contributions Contribution[]
 
-  @@map("contact_submission")
+  @@map("tns_projects")
+}
+
+model Case {
+  id            String         @id @default(ulid())
+  name          String
+  description   String?        @db.Text
+  status        CaseStatus //in_progress | completed | cancelled
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  contributions Contribution[]
+
+  @@map("tns_cases")
+}
+
+model Transaction {
+  id                String             @id @default(ulid())
+  transactionMethod TransactionMenthod // "cash" | "mpesa"
+  transactionType   TransactionType // "contribution" | "disbursement(payout)"
+  amount            Decimal
+  transactionStatus TransactionStatus  @default(pending)
+  member            Member             @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  memberId          String
+  transactedById    String?
+  transactedBy      User?              @relation("transactedBy", fields: [transactedById], references: [id], onDelete: SetNull)
+  contribution      Contribution?      @relation(fields: [contributionId], references: [id], onDelete: Cascade)
+  contributionId    String?
+  disbursementId    String?
+  disbursement      Disbursement?      @relation(fields: [disbursementId], references: [id], onDelete: Cascade)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  mpesaTransaction  MpesaTransaction?
+
+  @@map("transactions")
+}
+
+model Balance {
+  id        String   @id @default(ulid())
+  member    Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  memberId  String
+  year      Int
+  month     Int // 0-11
+  prepaid   Decimal  @default(0) // positive: money paid in advance
+  due       Decimal  @default(0) // positive: money owed for past months
+  updatedAt DateTime @updatedAt
+
+  @@map("member_balances")
+}
+
+model Member {
+  id                    String             @id @default(ulid())
+  tnsNumber             String?            @unique
+  alternativePhone      String?
+  country               String
+  areaOfResidence       String
+  state                 String?
+  zipCode               String?
+  idNumber              String             @unique
+  sex                   String
+  maritalStatus         MaritalStatus
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  membershipType        MembershipType     @default(basic)
+  registrationStatus    ApprovalStatus     @default(pending)
+  paymentStatus         TransactionStatus?
+  maturityStatus        MaturityStatus? // "propabation" | "matured"
+  probationEndDate      DateTime? // end of probation 92days
+  mpesaPaymentReference String?
+  user                  User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId                String             @unique
+  files                 MemberFile[]
+  documents             MemberDocument[]
+  settings              MemberSetting[]
+  beneficiaries         Beneficiary[]
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+  approvals             MemberApproval[]
+  parents               Parent[]
+  spouses               Spouse[]
+  children              Child[]
+  transactions          Transaction[]
+  balance               Balance[] // Per month
+
+  @@map("members")
 }
 
 model Disbursement {
   id                 String                 @id @default(ulid())
-  memberId           String
-  member             Member                 @relation(fields: [memberId], references: [id])
-  amount             Float
+  amount             Decimal
   reason             String?                @db.Text
   disbursementType   DisbursementType?
   status             DisbursementStatus     @default(pending)
@@ -104,15 +178,15 @@ model Disbursement {
   createdAt          DateTime               @default(now())
   updatedAt          DateTime               @updatedAt
   documents          DisbursementDocument[]
+  transactions       Transaction[]
 
-  @@index([memberId])
   @@index([status])
   @@map("disbursements")
 }
 
 model DisbursementDocument {
   id             String       @id @default(ulid())
-  disbursementId String // foreign key to Disbursement table
+  disbursementId String
   disbursement   Disbursement @relation(fields: [disbursementId], references: [id], onDelete: Cascade)
   filename       String
   fileType       String
@@ -127,45 +201,34 @@ model DisbursementDocument {
   @@map("disbursement_documents")
 }
 
-model Member {
-  id                    String          @id @default(ulid())
-  tnsNumber             String?         @unique
-  alternativePhone      String?
-  country               String
-  areaOfResidence       String
-  state                 String?
-  zipCode               String?
-  idNumber              String          @unique
-  sex                   String
-  maritalStatus         MaritalStatus
-  emergencyContactName  String?
-  emergencyContactPhone String?
-  membershipType        MembershipType  @default(basic)
-  registrationStatus    ApprovalStatus  @default(pending)
-  paymentStatus         PaymentStatus?
-  maturityStatus        MaturityStatus?
-  daysToMaturity        Int? // number of days remaining to maturity
-  probationEndDate      DateTime? // end of probation
-  mpesaPaymentReference String?
+model MpesaTransaction {
+  id                 String      @id @default(ulid())
+  transactionId      String      @unique
+  phone              String
+  checkoutRequestId  String?
+  merchantRequestId  String?
+  mpesaReceiptNumber String?
+  resultCode         String?
+  resultDesc         String?
+  transaction        Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
 
-  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId         String           @unique
-  paymentHistory PaymentHistory[]
-  files          MemberFile[]
-  documents      MemberDocument[]
-  settings       MemberSetting[]
-  beneficiaries  Beneficiary[]
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-  approvals      MemberApproval[]
-  contributions  Contribution[]
-  disbursements  Disbursement[]
-  mpesaPayments  MpesaPayment[]
-  parents        Parent[]
-  spouses        Spouse[]
-  children       Child[]
+  @@map("mpesa_transactions")
+}
 
-  @@map("members")
+model ContactSubmission {
+  id        String        @id @default(ulid())
+  name      String
+  email     String
+  phone     String?
+  subject   String
+  message   String
+  status    ContactStatus @default(pending)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@map("contact_submission")
 }
 
 model TnsCounter {
@@ -214,14 +277,6 @@ model Child {
   member           Member  @relation(fields: [memberId], references: [id], onDelete: Cascade)
 
   @@map("member_children")
-}
-
-model PaymentHistory {
-  id       String @id @default(ulid())
-  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  memberId String
-
-  @@map("payment_history")
 }
 
 model MemberFile {
@@ -277,33 +332,6 @@ model MonthlyExpense {
 
   @@index([expenseCategory])
   @@map("monthly_expenses")
-}
-
-model MpesaPayment {
-  id                 String             @id @default(ulid())
-  memberId           String
-  member             Member             @relation(fields: [memberId], references: [id])
-  amount             Float
-  phoneNumber        String
-  checkoutRequestId  String?
-  merchantRequestId  String?
-  mpesaReceiptNumber String?
-  resultCode         String?
-  resultDesc         String?
-  transactionDate    DateTime?
-  status             MpesaPaymentStatus @default(pending)
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
-
-  @@index([memberId])
-  @@index([status])
-  @@map("mpesa_payments")
-}
-
-model MemberBalance {
-  id String @id @default(ulid())
-
-  @@map("member_balance")
 }
 
 model MemberApproval {
@@ -412,9 +440,20 @@ enum ExpenseCategory {
   other
 }
 
-enum PaymentStatus {
-  paid
+enum TransactionMenthod {
+  mpesa
+  cash
+}
+
+enum TransactionType {
+  contribution
+  disbursement // payout
+}
+
+enum TransactionStatus {
+  completed
   pending
+  failed
 }
 
 enum MaturityStatus {
@@ -428,9 +467,9 @@ enum MembershipType {
   family
 }
 
-enum PaymentTypes {
+enum ContributionType {
   monthly_contribution
-  cases
+  case
   project
   registration
   other
@@ -462,12 +501,6 @@ enum DisbursementType {
   other
 }
 
-enum MpesaPaymentStatus {
-  pending
-  completed
-  failed
-}
-
 enum TaskStatus {
   pending
   in_progress
@@ -487,4 +520,16 @@ enum TaskType {
   maintenance
   follow_up
   other
+}
+
+enum ProjectStatus {
+  pending
+  completed
+  cancelled
+}
+
+enum CaseStatus {
+  in_progress
+  completed
+  cancelled
 }
