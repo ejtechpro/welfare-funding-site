@@ -85,7 +85,7 @@ export const ManualPaymentEntry = () => {
         setAmount("");
         setSelectedMember("");
         setReferenceNumber("");
-        setPaymentDate(new Date().toISOString());
+        // setPaymentDate(new Date().toISOString());
         setPaymentType(PAYMENT_TYPES.MONTHLY);
       }
     },

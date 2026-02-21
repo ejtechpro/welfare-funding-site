@@ -50,9 +50,8 @@ const validatePhone = (phone: string): boolean => {
 };
 
 const validatePassword = (password: string): boolean => {
-  // At least 8 characters, one uppercase, one lowercase, one number
-  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{8,}$/;
-  return passwordRegex.test(password);
+  // Exactly 6 characters, any character
+  return password.length < 6 ? false : true;
 };
 
 const validateArea = (area: string): boolean => {
@@ -163,8 +162,7 @@ const Auth = () => {
     if (!password) {
       newErrors.password = "Password is required";
     } else if (!validatePassword(password)) {
-      newErrors.password =
-        "Password must be at least 8 characters with at least one uppercase, one lowercase, and one number";
+      newErrors.password = "Password must be at least 6 characters long";
     }
 
     // Role validation

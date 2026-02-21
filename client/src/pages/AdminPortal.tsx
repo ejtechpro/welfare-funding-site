@@ -299,7 +299,8 @@ const AdminPortal = () => {
     mutationFn: ()=> approveStaffWithPwd({
       userId:  selectedStaff?.id,
       password: portalPassword,
-      oldPassword: selectedStaff?.password
+      oldPassword: selectedStaff?.password,
+      requestedRole: selectedStaff?.requestedRole
     }),
     onSuccess: async (data: any) => {
       if (data?.success) {

@@ -1,5 +1,6 @@
 const express = require("express");
 const prisma = require("../config/conn.js");
+const bcrypt = require("bcryptjs");
 
 const router = express.Router();
 
@@ -100,7 +101,7 @@ router.get("/staffs", async (req, res) => {
 
 router.post("/approve", async (req, res) => {
   try {
-    const { userId, password, oldPassword } = req.body;
+    const { userId, password, oldPassword, requestedRole } = req.body;
     const { userRole, id: uid, isVerified } = req.user;
 
     const allowedRoles = ["super_admin", "admin"];
@@ -129,6 +130,7 @@ router.post("/approve", async (req, res) => {
         data: {
           approval: "approved",
           status: "active",
+          userRole: requestedRole,
           // paymentStatus: "paid",
           password: hashedPassword,
         },
