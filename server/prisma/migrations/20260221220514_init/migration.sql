@@ -45,6 +45,7 @@ CREATE TABLE `contributions` (
     `id` VARCHAR(191) NOT NULL,
     `amount` DECIMAL(65, 30) NOT NULL,
     `contributionType` ENUM('monthly_contribution', 'case', 'project', 'registration', 'other') NOT NULL,
+    `memberId` VARCHAR(191) NOT NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
     `projectId` VARCHAR(191) NULL,
@@ -80,7 +81,7 @@ CREATE TABLE `tns_cases` (
 -- CreateTable
 CREATE TABLE `transactions` (
     `id` VARCHAR(191) NOT NULL,
-    `transactionMethod` ENUM('mpesa', 'cash') NOT NULL,
+    `transactionMethod` ENUM('mpesa', 'cash', 'manual_payment') NOT NULL,
     `transactionType` ENUM('contribution', 'disbursement') NOT NULL,
     `amount` DECIMAL(65, 30) NOT NULL,
     `transactionStatus` ENUM('completed', 'pending', 'failed') NOT NULL DEFAULT 'pending',
@@ -98,12 +99,14 @@ CREATE TABLE `transactions` (
 CREATE TABLE `member_balances` (
     `id` VARCHAR(191) NOT NULL,
     `memberId` VARCHAR(191) NOT NULL,
-    `year` INTEGER NOT NULL,
-    `month` INTEGER NOT NULL,
+    `currentMonth` INTEGER NOT NULL,
+    `currentYear` INTEGER NOT NULL,
+    `status` VARCHAR(191) NOT NULL,
     `prepaid` DECIMAL(65, 30) NOT NULL DEFAULT 0,
     `due` DECIMAL(65, 30) NOT NULL DEFAULT 0,
     `updatedAt` DATETIME(3) NOT NULL,
 
+    UNIQUE INDEX `member_balances_memberId_key`(`memberId`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -175,12 +178,13 @@ CREATE TABLE `disbursement_documents` (
 CREATE TABLE `mpesa_transactions` (
     `id` VARCHAR(191) NOT NULL,
     `transactionId` VARCHAR(191) NOT NULL,
-    `phone` VARCHAR(191) NOT NULL,
+    `phone` VARCHAR(191) NULL,
     `checkoutRequestId` VARCHAR(191) NULL,
     `merchantRequestId` VARCHAR(191) NULL,
     `mpesaReceiptNumber` VARCHAR(191) NULL,
     `resultCode` VARCHAR(191) NULL,
     `resultDesc` VARCHAR(191) NULL,
+    `paymentDate` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -361,6 +365,9 @@ ALTER TABLE `contributions` ADD CONSTRAINT `contributions_projectId_fkey` FOREIG
 
 -- AddForeignKey
 ALTER TABLE `contributions` ADD CONSTRAINT `contributions_caseId_fkey` FOREIGN KEY (`caseId`) REFERENCES `tns_cases`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `contributions` ADD CONSTRAINT `contributions_memberId_fkey` FOREIGN KEY (`memberId`) REFERENCES `members`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `transactions` ADD CONSTRAINT `transactions_memberId_fkey` FOREIGN KEY (`memberId`) REFERENCES `members`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;

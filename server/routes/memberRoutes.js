@@ -5,17 +5,6 @@ const prisma = require("../config/conn.js");
 
 const router = express.Router();
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, "../public/"));
-  },
-  filename: (req, file, cb) => {
-    const uniqueName = Date.now() + "-" + file.originalname;
-    cb(null, uniqueName);
-  },
-});
-
-const upload = multer({ storage });
 
 router.get("/all", async (req, res) => {
   try {
@@ -56,7 +45,7 @@ router.put("/approve/:memberId", async (req, res) => {
     //   });
     // }
 
-    const tx = await prisma.$transaction(async (tx) => {
+    const txn = await prisma.$transaction(async (tx) => {
       //Atomic counter increment (NO lock needed)
       const counter = await tx.tnsCounter.upsert({
         where: { id: 1 },
@@ -95,7 +84,7 @@ router.put("/approve/:memberId", async (req, res) => {
       return { tnsNumber };
     });
 
-    res.status(200).json({ success: true, tnsNumber: tx.tnsNumber });
+    res.status(200).json({ success: true, tnsNumber: txn.tnsNumber });
   } catch (error) {
     console.log(error);
     res.status(500).json({ error: "Internal server error!" });
@@ -104,7 +93,7 @@ router.put("/approve/:memberId", async (req, res) => {
 router.put("/reject/:memberId", async (req, res) => {
   try {
     const { memberId } = req.params;
-    const { userRole, userId  } = req.user;
+    const { userRole, userId } = req.user;
     const allowedRoles = ["super_admin", "admin"];
 
     if (!allowedRoles.includes(userRole)) {
@@ -124,7 +113,7 @@ router.put("/reject/:memberId", async (req, res) => {
         },
       },
     });
-    await tx.memberApproval.create({
+    await prisma.memberApproval.create({
       data: {
         approvalType: "registration",
         memberId: memberId,
@@ -132,6 +121,41 @@ router.put("/reject/:memberId", async (req, res) => {
       },
     });
     res.status(200).json({ success: true });
+  } catch (error) {
+    console.log(error)
+    res.status(500).json({ error: "Internal server error!" });
+  }
+});
+
+router.delete("/delete-member/:memberId", async (req, res) => {
+  try {
+    const { memberId } = req.params;
+
+    if (!memberId)
+      return res.status(400).json({ error: "Member is is required" });
+
+    await prisma.$transaction(async (tx) => {
+      const member = await tx.member.delete({
+        where: { id: memberId },
+        include: { user: true },
+      });
+
+      await tx.user.delete({
+        where: { id: member.userId },
+      });
+    });
+
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: "Internal server error!" });
+  }
+});
+
+
+router.put("/update-member", (req, res) => {
+  try {
+    const memberId = req.params;
   } catch (error) {
     res.status(500).json({ error: "Internal server error!" });
   }

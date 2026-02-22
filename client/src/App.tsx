@@ -27,11 +27,13 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <Routes>
+        {/* Maintenance page */}
+        {/* <Route path="*" element={<Maintenance/>} /> */}
         {/* public */}
         <Route path="/" element={<Index />} />
         <Route path="/auth" element={<Auth />} />
-        {/* <Route path="/portal-login" element={<PortalLogin />} />
-        <Route path="/adminregistration" element={<AdminRegistration />} /> */}
+        {/* {/* <Route path="/portal-login" element={<PortalLogin />} /> */}
+        {/* <Route path="/adminregistration" element={<AdminRegistration />} /> 
 
         {/* 🔒 Any logged-in user */}
         <Route element={<AuthRoute />}>
@@ -39,7 +41,7 @@ const App = () => (
           <Route path="/viewmems" element={<ViewMembers />} />
 
           {/* 🔐 Role-based */}
-          <Route
+          <Route 
             element={
               <RoleRoute
                 roles={[
@@ -49,43 +51,43 @@ const App = () => (
                 ]}
               />
             }
-          >
-            <Route path="/coordinator" element={<Maintenance />} />
-            {/* <Route
+          > 
+            <Route path="/coordinator" element={<CoordinatorPortal />} />
+            <Route
               path="/general-coordinator"
               element={<CoordinatorPortal />}
-            /> */}
-          </Route>
+            />
+          </Route> 
 
-          <Route
+        <Route 
             element={<RoleRoute roles={[UserRole.auditor, UserRole.admin]} />}
           >
             <Route path="/auditor" element={<AuditorPortal />} />
-          </Route>
+          </Route> 
 
-          <Route
+           <Route
             element={<RoleRoute roles={[UserRole.admin, UserRole.treasurer]} />}
           >
             <Route path="/admin" element={<AdminPortal />} />
             <Route path="/treasurer" element={<AdminPortal />} />
-          </Route>
+          </Route> 
 
-          <Route
+         <Route
             element={<RoleRoute roles={[UserRole.secretary, UserRole.admin]} />}
           >
             <Route path="/secretary" element={<SecretaryPortal />} />
             <Route path="/customer-service" element={<SecretaryPortal />} />
           </Route>
-        </Route>
+        </Route> 
 
         {/* public */}
-        <Route path="/terms-of-service" element={<TermsOfService />} />
+         <Route path="/terms-of-service" element={<TermsOfService />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/member-agreement" element={<MemberAgreement />} />
-        <Route path="*" element={<NotFound />} />
+        <Route path="*" element={<NotFound />} /> 
       </Routes>
     </AuthProvider>
-    <ReactQueryDevtools initialIsOpen={false} />
+     <ReactQueryDevtools initialIsOpen={false} />
   </QueryClientProvider>
 );
 

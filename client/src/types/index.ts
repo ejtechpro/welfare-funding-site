@@ -186,3 +186,21 @@ export interface Staff {
   createdAt: Date;
   updatedAt: Date;
 }
+
+// Each anomaly object
+export type BalanceAnomaly = {
+  memberId: string;
+  prepaid: string;
+  currentMonth: String;
+  currentYear: String;
+  tnsNumber: string;
+  due: string;
+  status: "open" | "paid";
+};
+
+// Response type for your health check route
+export type BalanceHealthCheckResponse = {
+  totalBalances: number;
+  balances: BalanceAnomaly[];
+  anomalyCount: number;
+};

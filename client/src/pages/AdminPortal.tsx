@@ -93,16 +93,17 @@ import { DisbursementsReport } from "@/components/DisbursementsReport";
 import { ExpensesReport } from "@/components/ExpensesReport";
 import { MemberMPESAPayment } from "@/components/MemberMPESAPayment";
 import {
-  triggerMemberDeletionSync,
   setupMemberDeletionSync,
   type MemberDeletionEvent,
 } from "../utils/memberDeletionSync";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getMembersOptions } from "@/queries/memberQueryOptions";
 import { getStaffOptions } from "@/queries/userQueryOptions";
-import { memberApproval, memberRejection } from "@/api/member";
-import type { Staff } from "@/types";
+import { memberApproval, memberDeletion, memberRejection } from "@/api/member";
+import type { Member, Staff } from "@/types";
 import { approveStaffWithPwd, staffRejection } from "@/api/user";
+import { BalanceDebugTable } from "@/components/BalanceDebugTable";
+import * as XLSX from "xlsx";
 
 interface MemberRegistration {
   id: string;
@@ -113,23 +114,23 @@ interface MemberRegistration {
   address: string;
   city: string;
   state: string;
-  zip_code: string;
-  membership_type: string;
-  registration_status: string;
-  payment_status: string;
+  zipCode: string;
+  membershipType: string;
+  registrationStatus: string;
+  paymentStatus: string;
   registration_date: string;
-  tns_number?: string;
+  tnsNumber?: string;
   profile_picture_url?: string;
-  emergency_contact_name: string;
-  emergency_contact_phone: string;
-  id_number?: string;
-  alternative_phone?: string;
+  emergencyContactName: string;
+  emergencyContactPhone: string;
+  idNumber?: string;
+  alternativePhone?: string;
   sex?: string;
-  marital_status?: string;
-  maturity_status?: string;
+  maritalStatus?: string;
+  maturityStatus?: string;
   days_to_maturity?: number;
   probation_end_date?: string;
-  mpesa_payment_reference?: string;
+  mpesaPaymentReference?: string;
 }
 
 interface StaffRegistration {
@@ -157,7 +158,7 @@ interface MPESAPayment {
   membership_registrations?: {
     firstName: string;
     lastName: string;
-    tns_number?: string;
+    tnsNumber?: string;
     email: string;
   } | null;
 }
@@ -203,16 +204,12 @@ const AdminPortal = () => {
   );
   const [portalPassword, setPortalPassword] = useState("");
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
-  const [memberToDelete, setMemberToDelete] =
-    useState<MemberRegistration | null>(null);
+  const [memberToDelete, setMemberToDelete] = useState<Member | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
 
   // Member editing states
-  const [memberToEdit, setMemberToEdit] = useState<MemberRegistration | null>(
-    null,
-  );
+  const [memberToEdit, setMemberToEdit] = useState<Member | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [editFormData, setEditFormData] = useState<Partial<MemberRegistration>>(
@@ -233,10 +230,9 @@ const AdminPortal = () => {
     }
     return [];
   }, [staffs]);
-  
 
   //!MUTATIONS
-   const approveMember = useMutation({
+  const approveMember = useMutation({
     mutationFn: (memberId: string) => memberApproval(memberId),
 
     onSuccess: async (data: any) => {
@@ -288,6 +284,35 @@ const AdminPortal = () => {
       }
     },
   });
+  const deleteMember = useMutation({
+    mutationFn: () => memberDeletion(memberToDelete!.id),
+    onSuccess: async (data: any) => {
+      if (data?.success) {
+        await queryClient.invalidateQueries({ queryKey: ["members"] });
+        toast.success(`Member account deleted successfully!`, {
+          description: `The member has been deleted with his all data!`,
+          duration: 5000,
+        });
+        // Step 13: Close dialog and refresh data
+        setIsDeleteDialogOpen(false);
+        setMemberToDelete(null);
+        setDeleteConfirmation("");
+      }
+    },
+    onError: (error: any) => {
+      if (error?.response?.data?.error) {
+        toast.error("Error occurred", {
+          description: error?.response?.data?.error,
+          duration: 7000,
+        });
+      } else {
+        toast.error("Error occurred", {
+          description: "Something went Wrong, try again!",
+          duration: 7000,
+        });
+      }
+    },
+  });
 
   const openPasswordDialog = (staff: Staff) => {
     setSelectedStaff(staff);
@@ -296,12 +321,13 @@ const AdminPortal = () => {
   };
 
   const approveStaff = useMutation({
-    mutationFn: ()=> approveStaffWithPwd({
-      userId:  selectedStaff?.id,
-      password: portalPassword,
-      oldPassword: selectedStaff?.password,
-      requestedRole: selectedStaff?.requestedRole
-    }),
+    mutationFn: () =>
+      approveStaffWithPwd({
+        userId: selectedStaff?.id,
+        password: portalPassword,
+        oldPassword: selectedStaff?.password,
+        requestedRole: selectedStaff?.requestedRole,
+      }),
     onSuccess: async (data: any) => {
       if (data?.success) {
         await queryClient.invalidateQueries({ queryKey: ["staffs"] });
@@ -309,9 +335,9 @@ const AdminPortal = () => {
           description: `Access to portal granted successfully!`,
           duration: 5000,
         });
-      setIsPasswordDialogOpen(false);
-      setSelectedStaff(null);
-      setPortalPassword("");
+        setIsPasswordDialogOpen(false);
+        setSelectedStaff(null);
+        setPortalPassword("");
       }
     },
     onError: (error: any) => {
@@ -327,11 +353,10 @@ const AdminPortal = () => {
         });
       }
     },
-
-  })
+  });
 
   const rejectStaff = useMutation({
-    mutationFn: (userId: any)=> staffRejection({userId}),
+    mutationFn: (userId: any) => staffRejection({ userId }),
     onSuccess: async (data: any) => {
       if (data?.success) {
         await queryClient.invalidateQueries({ queryKey: ["staffs"] });
@@ -354,9 +379,7 @@ const AdminPortal = () => {
         });
       }
     },
-  })
-   
-
+  });
 
   // Group MPESA payments by member to show contributions under one row per member
   const groupedMpesaPayments = useMemo(() => {
@@ -571,10 +594,6 @@ const AdminPortal = () => {
 
   const fetchPendingRegistrations = async () => {
     try {
-    
-
-  
-
       // Fetch MPESA payments - only show completed payments to admin
       const { data: mpesaData, error: mpesaError } = await supabase
         .from("mpesa_payments")
@@ -589,7 +608,7 @@ const AdminPortal = () => {
         (mpesaData || []).map(async (payment) => {
           const { data: memberData } = await supabase
             .from("membership_registrations")
-            .select("firstName, lastName, tns_number, email")
+            .select("firstName, lastName, tnsNumber, email")
             .eq("id", payment.member_id)
             .single();
 
@@ -626,19 +645,17 @@ const AdminPortal = () => {
 
       if (expensesError) throw expensesError;
 
-      setMpesaPayments(mpesaWithMembers || []);
-      setContributions(contributionsData || []);
-      setDisbursements(disbursementsData || []);
-      setMonthlyExpenses(expensesData || []);
+      // setMpesaPayments(mpesaWithMembers || []);
+      // setContributions(contributionsData || []);
+      // setDisbursements(disbursementsData || []);
+      // setMonthlyExpenses(expensesData || []);
     } catch (error) {
       console.error("Error fetching registrations:", error);
       toast.error("Failed to load registrations");
-    } 
+    }
   };
 
- 
-
-  const openEditDialog = (member: MemberRegistration) => {
+  const openEditDialog = (member: Member) => {
     // Additional safety check - only allow admins to edit members
     if (user && user.userRole !== "admin") {
       toast.error("Access denied. Only Admins can edit members.", {
@@ -693,8 +710,8 @@ const AdminPortal = () => {
     }
 
     // Validate emergency contact phone number if provided
-    if (editFormData.emergency_contact_phone?.trim()) {
-      const emergencyPhoneClean = editFormData.emergency_contact_phone.replace(
+    if (editFormData.emergencyContactPhone?.trim()) {
+      const emergencyPhoneClean = editFormData.emergencyContactPhone.replace(
         /[\s\-\(\)\.]/g,
         "",
       );
@@ -707,8 +724,8 @@ const AdminPortal = () => {
     }
 
     // Validate alternative phone number if provided
-    if (editFormData.alternative_phone?.trim()) {
-      const altPhoneClean = editFormData.alternative_phone.replace(
+    if (editFormData.alternativePhone?.trim()) {
+      const altPhoneClean = editFormData.alternativePhone.replace(
         /[\s\-\(\)\.]/g,
         "",
       );
@@ -729,23 +746,22 @@ const AdminPortal = () => {
         lastName: editFormData.lastName?.trim(),
         email: editFormData.email?.trim(),
         phone: editFormData.phone?.trim(),
-        alternative_phone: editFormData.alternative_phone?.trim() || null,
+        alternativePhone: editFormData.alternativePhone?.trim() || null,
         address: editFormData.address?.trim(),
         city: editFormData.city?.trim(),
         state: editFormData.state?.trim(),
-        zip_code: editFormData.zip_code?.trim(),
-        id_number: editFormData.id_number?.trim() || null,
-        emergency_contact_name: editFormData.emergency_contact_name?.trim(),
-        emergency_contact_phone: editFormData.emergency_contact_phone?.trim(),
+        zipCode: editFormData.zipCode?.trim(),
+        idNumber: editFormData.idNumber?.trim() || null,
+        emergencyContactName: editFormData.emergencyContactName?.trim(),
+        emergencyContactPhone: editFormData.emergencyContactPhone?.trim(),
         sex: editFormData.sex || null,
-        marital_status: editFormData.marital_status || null,
-        membership_type: editFormData.membership_type,
-        registration_status: editFormData.registration_status,
-        payment_status: editFormData.payment_status,
-        maturity_status: editFormData.maturity_status || null,
-        mpesa_payment_reference:
-          editFormData.mpesa_payment_reference?.trim() || null,
-        updated_at: new Date().toISOString(),
+        maritalStatus: editFormData.maritalStatus || null,
+        membershipType: editFormData.membershipType,
+        registrationStatus: editFormData.registrationStatus,
+        paymentStatus: editFormData.paymentStatus,
+        maturityStatus: editFormData.maturityStatus || null,
+        mpesaPaymentReference:
+          editFormData.mpesaPaymentReference?.trim() || null,
       };
 
       console.log(
@@ -794,17 +810,12 @@ const AdminPortal = () => {
       localStorage.removeItem("memberUpdate"); // Remove immediately to trigger storage event
 
       // 3. Update related data that might be affected by member changes
-      if (
-        editFormData.registration_status !== memberToEdit.registration_status
-      ) {
+      if (editFormData.registrationStatus !== memberToEdit.registrationStatus) {
         console.log(
           "Registration status changed - updating related records...",
         );
         // If status changed to approved, ensure TNS number is assigned
-        if (
-          editFormData.registration_status === "approved" &&
-          !updatedMember.tns_number
-        ) {
+        if (editFormData.registrationStatus === "approved") {
           console.log(
             "New approved member - TNS number should be auto-assigned by database trigger",
           );
@@ -812,7 +823,7 @@ const AdminPortal = () => {
       }
 
       // 4. Update member balances if payment status changed
-      if (editFormData.payment_status !== memberToEdit.payment_status) {
+      if (editFormData.paymentStatus !== memberToEdit.paymentStatus) {
         console.log("Payment status changed - refreshing member balances...");
         const { error: balanceError } = await supabase
           .from("member_balances")
@@ -923,7 +934,7 @@ const AdminPortal = () => {
     }
   };
 
-  const openDeleteDialog = (member: MemberRegistration) => {
+  const openDeleteDialog = (member: Member) => {
     // Additional safety check - only allow admins to delete members
     if (user && user.userRole !== "admin") {
       toast.error("Access denied. Only Admins can delete members.", {
@@ -938,511 +949,6 @@ const AdminPortal = () => {
     setIsDeleteDialogOpen(true);
   };
 
-  const deleteMember = async () => {
-    if (!memberToDelete) return;
-
-    setIsDeleting(true);
-    const memberId = memberToDelete.id;
-    const memberName = `${memberToDelete.firstName} ${memberToDelete.lastName}`;
-
-    try {
-      console.log(
-        `🗑️ Starting comprehensive deletion of member: ${memberName} (ID: ${memberId})`,
-      );
-      let deletionSummary = [];
-
-      // Step 1: Delete disbursement documents (bereavement forms and other documents)
-      console.log("Deleting disbursement documents for member:", memberId);
-      try {
-        const { data: disbursementIds } = await supabase
-          .from("disbursements")
-          .select("id")
-          .eq("member_id", memberId);
-
-        if (disbursementIds && disbursementIds.length > 0) {
-          const disbIds = disbursementIds.map((d) => d.id);
-          const { error: docsError, count: docsCount } = await supabase
-            .from("disbursement_documents")
-            .delete()
-            .in("disbursement_id", disbIds);
-
-          if (docsError) {
-            console.warn(
-              "Warning - Error deleting disbursement documents:",
-              docsError,
-            );
-          } else {
-            console.log(
-              `Successfully deleted ${docsCount || 0} disbursement documents`,
-            );
-            if (docsCount) deletionSummary.push(`${docsCount} documents`);
-          }
-        }
-      } catch (error) {
-        console.warn("Table disbursement_documents may not exist yet:", error);
-      }
-
-      // Step 2: Delete MPESA payments (no FK constraint, must delete manually)
-      console.log("Deleting MPESA payments for member:", memberId);
-      const { error: mpesaError, count: mpesaCount } = await supabase
-        .from("mpesa_payments")
-        .delete()
-        .eq("member_id", memberId);
-
-      if (mpesaError) {
-        console.warn("Warning - Error deleting MPESA payments:", mpesaError);
-      } else {
-        console.log(`Successfully deleted ${mpesaCount || 0} MPESA payments`);
-        if (mpesaCount) deletionSummary.push(`${mpesaCount} MPESA payments`);
-      }
-
-      // Step 3: Delete member notifications (if table exists)
-      console.log("Deleting member notifications for member:", memberId);
-      try {
-        const { error: notificationsError, count: notificationsCount } =
-          await supabase
-            .from("member_notifications" as any)
-            .delete()
-            .eq("member_id", memberId);
-
-        if (notificationsError) {
-          console.warn(
-            "Warning - Error deleting member notifications:",
-            notificationsError,
-          );
-        } else {
-          console.log(
-            `Successfully deleted ${notificationsCount || 0} member notifications`,
-          );
-          if (notificationsCount)
-            deletionSummary.push(`${notificationsCount} notifications`);
-        }
-      } catch (error) {
-        console.warn("Table member_notifications may not exist:", error);
-      }
-
-      // Step 4: Delete document sharing records (if table exists)
-      console.log("Deleting document sharing records for member:", memberId);
-      try {
-        const { error: sharingError, count: sharingCount } = await supabase
-          .from("document_sharing" as any)
-          .delete()
-          .or(`shared_with.eq.${memberId},shared_by.eq.${memberId}`);
-
-        if (sharingError) {
-          console.warn(
-            "Warning - Error deleting document sharing records:",
-            sharingError,
-          );
-        } else {
-          console.log(
-            `Successfully deleted ${sharingCount || 0} document sharing records`,
-          );
-          if (sharingCount)
-            deletionSummary.push(`${sharingCount} document shares`);
-        }
-      } catch (error) {
-        console.warn("Table document_sharing may not exist:", error);
-      }
-
-      // Step 5: Delete member audit logs (if table exists)
-      console.log("Deleting audit logs for member:", memberId);
-      try {
-        const { error: auditError, count: auditCount } = await supabase
-          .from("audit_logs" as any)
-          .delete()
-          .eq("record_id", memberId)
-          .eq("table_name", "membership_registrations");
-
-        if (auditError) {
-          console.warn("Warning - Error deleting audit logs:", auditError);
-        } else {
-          console.log(
-            `Successfully deleted ${auditCount || 0} audit log entries`,
-          );
-          if (auditCount) deletionSummary.push(`${auditCount} audit logs`);
-        }
-      } catch (error) {
-        console.warn("Table audit_logs may not exist:", error);
-      }
-
-      // Step 6: Delete member balances (has CASCADE, but delete explicitly for logging)
-      console.log("Deleting member balances for member:", memberId);
-      const { error: balancesError, count: balancesCount } = await supabase
-        .from("member_balances")
-        .delete()
-        .eq("member_id", memberId);
-
-      if (balancesError) {
-        console.warn(
-          "Warning - Error deleting member balances:",
-          balancesError,
-        );
-      } else {
-        console.log(
-          `Successfully deleted ${balancesCount || 0} member balance records`,
-        );
-        if (balancesCount)
-          deletionSummary.push(`${balancesCount} balance records`);
-      }
-
-      // Step 7: Delete contributions (has CASCADE, but delete explicitly to ensure cleanup)
-      console.log("Deleting contributions for member:", memberId);
-      const { error: contributionsError, count: contributionsCount } =
-        await supabase.from("contributions").delete().eq("member_id", memberId);
-
-      if (contributionsError) {
-        console.warn(
-          "Warning - Error deleting contributions:",
-          contributionsError,
-        );
-      } else {
-        console.log(
-          `Successfully deleted ${contributionsCount || 0} contributions`,
-        );
-        if (contributionsCount)
-          deletionSummary.push(`${contributionsCount} contributions`);
-      }
-
-      // Step 8: Delete disbursements (has CASCADE, but delete explicitly)
-      console.log("Deleting disbursements for member:", memberId);
-      const { error: disbursementsError, count: disbursementsCount } =
-        await supabase.from("disbursements").delete().eq("member_id", memberId);
-
-      if (disbursementsError) {
-        console.warn(
-          "Warning - Error deleting disbursements:",
-          disbursementsError,
-        );
-      } else {
-        console.log(
-          `Successfully deleted ${disbursementsCount || 0} disbursements`,
-        );
-        if (disbursementsCount)
-          deletionSummary.push(`${disbursementsCount} disbursements`);
-      }
-
-      // Step 9: Delete any task records that might reference this member
-      console.log("Deleting task records related to member:", memberId);
-      try {
-        const { error: tasksError, count: tasksCount } = await supabase
-          .from("tasks")
-          .delete()
-          .or(
-            `data->>member_id.eq.${memberId},data->>target_member.eq.${memberId}`,
-          );
-
-        if (tasksError) {
-          console.warn("Warning - Error deleting task records:", tasksError);
-        } else {
-          console.log(`Successfully deleted ${tasksCount || 0} task records`);
-          if (tasksCount) deletionSummary.push(`${tasksCount} tasks`);
-        }
-      } catch (error) {
-        console.warn("Error with task deletion (may not exist):", error);
-      }
-
-      // Step 10: Delete any user sessions and login activities (if tables exist)
-      console.log("Cleaning up session data and login activities...");
-      try {
-        const memberEmail = memberToDelete.email;
-        if (memberEmail) {
-          // Delete user sessions if table exists
-          try {
-            const { error: sessionsError, count: sessionsCount } =
-              await supabase
-                .from("user_sessions" as any)
-                .delete()
-                .eq("user_email", memberEmail);
-
-            if (!sessionsError && sessionsCount) {
-              console.log(
-                `Successfully deleted ${sessionsCount} user sessions`,
-              );
-              deletionSummary.push(`${sessionsCount} sessions`);
-            }
-          } catch (error) {
-            console.warn("Table user_sessions may not exist:", error);
-          }
-
-          // Delete login activities if table exists
-          try {
-            const { error: activitiesError, count: activitiesCount } =
-              await supabase
-                .from("login_activities" as any)
-                .delete()
-                .eq("user_email", memberEmail);
-
-            if (!activitiesError && activitiesCount) {
-              console.log(
-                `Successfully deleted ${activitiesCount} login activities`,
-              );
-              deletionSummary.push(`${activitiesCount} login records`);
-            }
-          } catch (error) {
-            console.warn("Table login_activities may not exist:", error);
-          }
-        }
-      } catch (error) {
-        console.warn("Error cleaning up session data:", error);
-      }
-
-      // Step 10a: Delete any member communication logs (SMS, emails, etc.)
-      console.log("Deleting communication logs for member:", memberId);
-      try {
-        const { error: commError, count: commCount } = await supabase
-          .from("communication_logs" as any)
-          .delete()
-          .eq("member_id", memberId);
-
-        if (!commError && commCount) {
-          console.log(`Successfully deleted ${commCount} communication logs`);
-          deletionSummary.push(`${commCount} communications`);
-        }
-      } catch (error) {
-        console.warn("Table communication_logs may not exist:", error);
-      }
-
-      // Step 10b: Delete any member support tickets or help requests
-      console.log("Deleting support tickets for member:", memberId);
-      try {
-        const { error: ticketError, count: ticketCount } = await supabase
-          .from("support_tickets" as any)
-          .delete()
-          .eq("member_id", memberId);
-
-        if (!ticketError && ticketCount) {
-          console.log(`Successfully deleted ${ticketCount} support tickets`);
-          deletionSummary.push(`${ticketCount} tickets`);
-        }
-      } catch (error) {
-        console.warn("Table support_tickets may not exist:", error);
-      }
-
-      // Step 10c: Final safety check - look for any remaining references
-      console.log("Performing final safety check for remaining references...");
-      try {
-        // Check for any remaining references in common tables
-        const tablesToCheck = [
-          "member_payments",
-          "payment_history",
-          "member_activities",
-          "member_logs",
-          "member_files",
-          "member_documents",
-          "user_preferences",
-          "member_settings",
-          "emergency_contacts",
-          "beneficiaries",
-        ];
-
-        for (const tableName of tablesToCheck) {
-          try {
-            const { error: checkError, count: remainingCount } = await supabase
-              .from(tableName as any)
-              .select("id", { count: "exact" })
-              .eq("member_id", memberId);
-
-            if (!checkError && remainingCount && remainingCount > 0) {
-              console.log(
-                `Found ${remainingCount} records in ${tableName}, attempting cleanup...`,
-              );
-
-              // Attempt to delete these records
-              const { error: cleanupError, count: cleanedCount } =
-                await supabase
-                  .from(tableName as any)
-                  .delete()
-                  .eq("member_id", memberId);
-
-              if (!cleanupError && cleanedCount) {
-                console.log(
-                  `Successfully cleaned up ${cleanedCount} records from ${tableName}`,
-                );
-                deletionSummary.push(`${cleanedCount} ${tableName} records`);
-              }
-            }
-          } catch (error) {
-            console.warn(
-              `Table ${tableName} may not exist or is not accessible:`,
-              error,
-            );
-          }
-        }
-      } catch (error) {
-        console.warn("Error during final safety check:", error);
-      }
-
-      // Step 11: Finally, delete the main member record with retry logic
-      console.log("Deleting main member record with safety checks:", memberId);
-      let memberDeletionAttempts = 0;
-      const maxAttempts = 3;
-
-      while (memberDeletionAttempts < maxAttempts) {
-        memberDeletionAttempts++;
-        console.log(
-          `Attempt ${memberDeletionAttempts} to delete member record...`,
-        );
-
-        try {
-          // First verify the member still exists
-          const { data: memberCheck, error: checkError } = await supabase
-            .from("membership_registrations")
-            .select("id, firstName, lastName")
-            .eq("id", memberId)
-            .single();
-
-          if (checkError || !memberCheck) {
-            console.warn(
-              "Member record not found - may have already been deleted",
-            );
-            toast.warning(
-              "Member may have already been deleted by another admin",
-            );
-            return;
-          }
-
-          // Attempt deletion
-          const { error: memberError, count: memberCount } = await supabase
-            .from("membership_registrations")
-            .delete()
-            .eq("id", memberId);
-
-          if (memberError) {
-            if (
-              memberError.message?.includes("foreign key") &&
-              memberDeletionAttempts < maxAttempts
-            ) {
-              console.warn(
-                `Foreign key constraint issue on attempt ${memberDeletionAttempts}, retrying...`,
-              );
-              // Wait a moment before retry
-              await new Promise((resolve) => setTimeout(resolve, 1000));
-              continue;
-            }
-
-            console.error(
-              "Critical error deleting member record:",
-              memberError,
-            );
-            throw memberError;
-          }
-
-          if (memberCount === 0) {
-            console.warn(
-              "No member record was deleted - member may have already been removed",
-            );
-            toast.error(
-              "Member may have already been deleted by another admin",
-            );
-            return;
-          }
-
-          console.log("✅ Successfully deleted main member record");
-          break; // Success, exit retry loop
-        } catch (attemptError) {
-          if (memberDeletionAttempts >= maxAttempts) {
-            throw attemptError;
-          }
-          console.warn(
-            `Deletion attempt ${memberDeletionAttempts} failed, retrying:`,
-            attemptError,
-          );
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-        }
-      }
-
-      // Step 12: Success summary
-      console.log("✅ Successfully deleted member record and all related data");
-      const summaryText =
-        deletionSummary.length > 0
-          ? `Deleted: ${deletionSummary.join(", ")}`
-          : "All related data has been permanently removed.";
-
-      toast.success(`🗑️ Member ${memberName} completely removed from system`, {
-        description: summaryText,
-        duration: 6000,
-      });
-
-      // Step 13: Close dialog and refresh data
-      setIsDeleteDialogOpen(false);
-      setMemberToDelete(null);
-      setDeleteConfirmation("");
-
-      // Step 14: Comprehensive data refresh and cross-portal synchronization
-      console.log(
-        "Performing comprehensive system refresh and cross-portal sync...",
-      );
-
-      // Refresh local data first
-      await fetchPendingRegistrations();
-
-      // Trigger comprehensive cross-portal synchronization using utility
-      const memberDeletedData: MemberDeletionEvent = {
-        memberId,
-        memberName,
-        memberEmail: memberToDelete.email,
-        memberTNS: memberToDelete.tns_number || null,
-        deletedBy: user ? `${user.firstName} ${user.lastName}` : "Admin",
-        timestamp: new Date().toISOString(),
-        summary: deletionSummary,
-        action: "MEMBER_DELETED",
-      };
-
-      // Use the utility to trigger cross-portal sync
-      triggerMemberDeletionSync(memberDeletedData);
-
-      // Step 15: Audit log
-      const auditData = {
-        action: "COMPLETE_MEMBER_DELETION",
-        memberId,
-        memberName,
-        memberEmail: memberToDelete.email,
-        deletedBy: user
-          ? `${user.firstName} ${user.lastName} (${user.userRole})`
-          : "Admin",
-        timestamp: new Date().toISOString(),
-        deletionSummary,
-        totalRecordsDeleted:
-          deletionSummary.reduce((sum, item) => {
-            const match = item.match(/\d+/);
-            return sum + (match ? parseInt(match[0]) : 0);
-          }, 0) + 1, // +1 for the main member record
-      };
-
-      console.log(`🔍 Complete deletion audit:`, auditData);
-    } catch (error: any) {
-      console.error(
-        "💥 Critical error during comprehensive member deletion:",
-        error,
-      );
-
-      let errorMessage =
-        "Failed to completely delete member. Some data may remain.";
-
-      if (error.message?.includes("foreign key")) {
-        errorMessage =
-          "Cannot delete member - there are related records preventing deletion. This may require manual database cleanup.";
-      } else if (error.message?.includes("permission")) {
-        errorMessage =
-          "Insufficient permissions to perform complete member deletion.";
-      } else if (error.message?.includes("not found")) {
-        errorMessage = "Member not found - may have already been deleted.";
-      } else if (error.message) {
-        errorMessage = `Deletion failed: ${error.message}`;
-      }
-
-      toast.error(errorMessage, {
-        description:
-          "Some related data may still exist. Contact technical support for complete cleanup.",
-        duration: 8000,
-      });
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  
   const handleLogout = () => {
     if (user) {
       signOut();
@@ -1457,14 +963,16 @@ const AdminPortal = () => {
     const toastId = toast.loading(
       "Generating " + format.toUpperCase() + " export...",
     );
+
     try {
-      // Nicely formatted PDF export (client-side)
+      // ===================== PDF (UNCHANGED) =====================
       if (format === "pdf") {
         const doc = new jsPDF({
           orientation: "landscape",
           unit: "pt",
           format: "a4",
         });
+
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
         const marginX = 40;
@@ -1529,14 +1037,11 @@ const AdminPortal = () => {
             fontStyle: "bold",
           },
           alternateRowStyles: { fillColor: [245, 247, 250] },
-          didDrawPage: (data) => {
+          didDrawPage: () => {
             header();
-            const currentPage = doc.getNumberOfPages();
-            footer(currentPage, currentPage); // total will be corrected after autoTable finishes
           },
         } as any);
 
-        // Correct footer to display total pages
         const totalPages = doc.getNumberOfPages();
         for (let i = 1; i <= totalPages; i++) {
           doc.setPage(i);
@@ -1549,47 +1054,60 @@ const AdminPortal = () => {
         return;
       }
 
-      // CSV/Excel export via edge function
-      const response = await fetch(
-        "https://wfqgnshhlfuznabweofj.supabase.co/functions/v1/export-members?format=" +
-          format,
-        {
-          method: "GET",
-          headers: {
-            Authorization:
-              "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndmcWduc2hobGZ1em5hYndlb2ZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUyNTE0MzgsImV4cCI6MjA3MDgyNzQzOH0.EsPr_ypf7B1PXTWmjS2ZGXDVBe7HeNHDWsvJcgQpkLA",
-            apikey:
-              "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndmcWduc2hobGZ1em5hYndlb2ZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUyNTE0MzgsImV4cCI6MjA3MDgyNzQzOH0.EsPr_ypf7B1PXTWmjS2ZGXDVBe7HeNHDWsvJcgQpkLA",
-          },
-        },
-      );
-
-      if (!response.ok) throw new Error("Export failed");
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
+      // ===================== CSV & EXCEL (CLIENT SIDE) =====================
+      const data = (members || []).map((m) => ({
+        Name: `${m.user.firstName || ""} ${m.user.lastName || ""}`.trim(),
+        Email: m.user.email || "",
+        Phone: m.user.phone || "",
+        City: m.city || "",
+        State: m.state || "",
+        "TNS #": m.tnsNumber || "-",
+        "Reg. Status": m.registrationStatus || "-",
+        Payment: m.paymentStatus || "-",
+        "Reg. Date": m.createdAt
+          ? new Date(m.createdAt).toLocaleDateString()
+          : "-",
+      }));
 
       const date = new Date().toISOString().split("T")[0];
-      const extension = format === "excel" ? "xls" : "csv";
-      a.download = "members_export_" + date + "." + extension;
 
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      // ---------- CSV ----------
+      if (format === "csv") {
+        const worksheet = XLSX.utils.json_to_sheet(data);
+        const csv = XLSX.utils.sheet_to_csv(worksheet);
 
-      toast.success(format.toUpperCase() + " export downloaded successfully!", {
-        id: toastId,
-      });
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `members_export_${date}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        toast.success("CSV exported successfully!", { id: toastId });
+        return;
+      }
+
+      // ---------- EXCEL ----------
+      if (format === "excel") {
+        const worksheet = XLSX.utils.json_to_sheet(data);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Members");
+
+        XLSX.writeFile(workbook, `members_export_${date}.xlsx`);
+
+        toast.success("Excel exported successfully!", { id: toastId });
+        return;
+      }
     } catch (error) {
       console.error("Export error:", error);
       toast.error("Failed to export " + format.toUpperCase() + " file", {
         id: toastId,
       });
     } finally {
-      // Ensure the loading toast is dismissed even if toast updates fail
       try {
         toast.dismiss(toastId);
       } catch (_) {}
@@ -2494,7 +2012,7 @@ const AdminPortal = () => {
                                 <div className="relative">
                                   <Avatar className="h-12 w-12 border-2 border-orange-200 dark:border-orange-700">
                                     <AvatarImage
-                                      src={member.user?.photo || undefined}
+                                      src={`/uploads/${member.user?.photo || undefined} `}
                                       alt={
                                         member.user?.firstName +
                                         " " +
@@ -2635,7 +2153,9 @@ const AdminPortal = () => {
                                   <Button
                                     size="sm"
                                     variant="destructive"
-                                    onClick={() => rejectMember.mutate(member.id)}
+                                    onClick={() =>
+                                      rejectMember.mutate(member.id)
+                                    }
                                     className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 shadow-md hover:shadow-lg transition-all duration-200 w-full"
                                   >
                                     <UserX className="h-4 w-4 mr-2" />
@@ -2722,7 +2242,7 @@ const AdminPortal = () => {
                             <TableCell>
                               <Avatar className="h-10 w-10">
                                 <AvatarImage
-                                  src={member.user.photo || undefined}
+                                  src={`/uploads/${member.user?.photo || undefined}`}
                                   alt={
                                     member.user?.firstName +
                                     " " +
@@ -3055,9 +2575,12 @@ const AdminPortal = () => {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-blue-200 dark:border-blue-800 shadow-sm hover:shadow-md transition-shadow">
-                        <ManualPaymentEntry/>
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                      <div className="bg-white grid-cols-1 flex items-center justify-center dark:bg-gray-800 p-4 rounded-lg border border-blue-200 dark:border-blue-800 shadow-sm hover:shadow-md transition-shadow">
+                        <ManualPaymentEntry />
+                      </div>
+                      <div className="bg-white grid-cols-2 w-full dark:bg-gray-800 p-4 rounded-lg border border-blue-200 dark:border-blue-800 shadow-sm hover:shadow-md transition-shadow">
+                        <BalanceDebugTable />
                       </div>
                       <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-blue-200 dark:border-blue-800 shadow-sm hover:shadow-md transition-shadow">
                         <ExpenditureForm
@@ -3449,7 +2972,7 @@ const AdminPortal = () => {
                                       className="font-mono"
                                     >
                                       {group.membership_registrations
-                                        ?.tns_number || "N/A"}
+                                        ?.tnsNumber || "N/A"}
                                     </Badge>
                                   </TableCell>
                                   <TableCell>
@@ -4084,12 +3607,16 @@ const AdminPortal = () => {
                     onChange={(e) => setPortalPassword(e.target.value)}
                     autoFocus
                   />
-                 
-                  
+
                   <div className="text-sm text-muted-foreground">
-                     {selectedStaff?.password ? <Badge variant="destructive" className=" animate-pulse">The user has password set already</Badge> : null}{" "}
-                    You can leave the field blunk to stop changing it and just approve hime. This password will be used to access their role-specific
-                    portal
+                    {selectedStaff?.password ? (
+                      <Badge variant="destructive" className=" animate-pulse">
+                        The user has password set already
+                      </Badge>
+                    ) : null}{" "}
+                    You can leave the field blunk to stop changing it and just
+                    approve hime. This password will be used to access their
+                    role-specific portal
                   </div>
                 </div>
               </div>
@@ -4100,15 +3627,12 @@ const AdminPortal = () => {
                 >
                   Cancel
                 </Button>
-                <Button
-                  onClick={()=>approveStaff.mutate()}
-                  
-                >
+                <Button onClick={() => approveStaff.mutate()}>
                   <UserCheck className="h-4 w-4" />
-                  {portalPassword.trim() ? "Assign Password & Approve" : "Approve"}
-                   
+                  {portalPassword.trim()
+                    ? "Assign Password & Approve"
+                    : "Approve"}
                 </Button>
-               
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -4119,8 +3643,8 @@ const AdminPortal = () => {
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <Edit className="h-5 w-5 text-blue-600" />
-                  Edit Member: {memberToEdit?.firstName}{" "}
-                  {memberToEdit?.lastName}
+                  Edit Member: {memberToEdit?.user.firstName}{" "}
+                  {memberToEdit?.user.lastName}
                 </DialogTitle>
                 <DialogDescription>
                   Update member information. Changes will be automatically
@@ -4192,11 +3716,11 @@ const AdminPortal = () => {
                           Marital Status
                         </Label>
                         <Select
-                          value={editFormData.marital_status || ""}
+                          value={editFormData.maritalStatus || ""}
                           onValueChange={(value) =>
                             setEditFormData({
                               ...editFormData,
-                              marital_status: value,
+                              maritalStatus: value,
                             })
                           }
                         >
@@ -4217,11 +3741,11 @@ const AdminPortal = () => {
                       <Label htmlFor="edit-id-number">ID Number</Label>
                       <Input
                         id="edit-id-number"
-                        value={editFormData.id_number || ""}
+                        value={editFormData.idNumber || ""}
                         onChange={(e) =>
                           setEditFormData({
                             ...editFormData,
-                            id_number: e.target.value,
+                            idNumber: e.target.value,
                           })
                         }
                         placeholder="Enter ID number"
@@ -4274,11 +3798,11 @@ const AdminPortal = () => {
                       <Label htmlFor="edit-alt-phone">Alternative Phone</Label>
                       <Input
                         id="edit-alt-phone"
-                        value={editFormData.alternative_phone || ""}
+                        value={editFormData.alternativePhone || ""}
                         onChange={(e) =>
                           setEditFormData({
                             ...editFormData,
-                            alternative_phone: e.target.value,
+                            alternativePhone: e.target.value,
                           })
                         }
                         placeholder="e.g., +254712345678, 0712345678 (optional)"
@@ -4337,11 +3861,11 @@ const AdminPortal = () => {
                       <Label htmlFor="edit-zip">ZIP Code *</Label>
                       <Input
                         id="edit-zip"
-                        value={editFormData.zip_code || ""}
+                        value={editFormData.zipCode || ""}
                         onChange={(e) =>
                           setEditFormData({
                             ...editFormData,
-                            zip_code: e.target.value,
+                            zipCode: e.target.value,
                           })
                         }
                         placeholder="Enter ZIP code"
@@ -4362,11 +3886,11 @@ const AdminPortal = () => {
                       </Label>
                       <Input
                         id="edit-emergency-name"
-                        value={editFormData.emergency_contact_name || ""}
+                        value={editFormData.emergencyContactName || ""}
                         onChange={(e) =>
                           setEditFormData({
                             ...editFormData,
-                            emergency_contact_name: e.target.value,
+                            emergencyContactName: e.target.value,
                           })
                         }
                         placeholder="Enter emergency contact name"
@@ -4379,11 +3903,11 @@ const AdminPortal = () => {
                       </Label>
                       <Input
                         id="edit-emergency-phone"
-                        value={editFormData.emergency_contact_phone || ""}
+                        value={editFormData.emergencyContactPhone || ""}
                         onChange={(e) =>
                           setEditFormData({
                             ...editFormData,
-                            emergency_contact_phone: e.target.value,
+                            emergencyContactPhone: e.target.value,
                           })
                         }
                         placeholder="e.g., +254712345678, 0712345678"
@@ -4403,11 +3927,11 @@ const AdminPortal = () => {
                         Membership Type *
                       </Label>
                       <Select
-                        value={editFormData.membership_type || ""}
+                        value={editFormData.membershipType || ""}
                         onValueChange={(value) =>
                           setEditFormData({
                             ...editFormData,
-                            membership_type: value,
+                            membershipType: value,
                           })
                         }
                       >
@@ -4426,11 +3950,11 @@ const AdminPortal = () => {
                         Registration Status
                       </Label>
                       <Select
-                        value={editFormData.registration_status || ""}
+                        value={editFormData.registrationStatus || ""}
                         onValueChange={(value) =>
                           setEditFormData({
                             ...editFormData,
-                            registration_status: value,
+                            registrationStatus: value,
                           })
                         }
                       >
@@ -4450,11 +3974,11 @@ const AdminPortal = () => {
                         Payment Status
                       </Label>
                       <Select
-                        value={editFormData.payment_status || ""}
+                        value={editFormData.paymentStatus || ""}
                         onValueChange={(value) =>
                           setEditFormData({
                             ...editFormData,
-                            payment_status: value,
+                            paymentStatus: value,
                           })
                         }
                       >
@@ -4476,11 +4000,11 @@ const AdminPortal = () => {
                         Maturity Status
                       </Label>
                       <Select
-                        value={editFormData.maturity_status || ""}
+                        value={editFormData.maturityStatus || ""}
                         onValueChange={(value) =>
                           setEditFormData({
                             ...editFormData,
-                            maturity_status: value,
+                            maturityStatus: value,
                           })
                         }
                       >
@@ -4500,11 +4024,11 @@ const AdminPortal = () => {
                       </Label>
                       <Input
                         id="edit-mpesa-ref"
-                        value={editFormData.mpesa_payment_reference || ""}
+                        value={editFormData.mpesaPaymentReference || ""}
                         onChange={(e) =>
                           setEditFormData({
                             ...editFormData,
-                            mpesa_payment_reference: e.target.value,
+                            mpesaPaymentReference: e.target.value,
                           })
                         }
                         placeholder="Enter MPESA reference"
@@ -4590,26 +4114,24 @@ const AdminPortal = () => {
                         <div className="flex items-center gap-3">
                           <Avatar className="h-12 w-12 border-2 border-red-200 dark:border-red-700">
                             <AvatarImage
-                              src={
-                                memberToDelete.profile_picture_url || undefined
-                              }
-                              alt={`${memberToDelete.firstName} ${memberToDelete.lastName}`}
+                              src={`/uploads/${memberToDelete?.user?.photo || undefined}`}
+                              alt={`${memberToDelete.user.firstName} ${memberToDelete.user.lastName}`}
                             />
                             <AvatarFallback className="bg-red-200 dark:bg-red-800 text-red-800 dark:text-red-200">
-                              {memberToDelete.firstName?.charAt(0)}
-                              {memberToDelete.lastName?.charAt(0)}
+                              {memberToDelete?.user.firstName?.charAt(0)}
+                              {memberToDelete.user.lastName?.charAt(0)}
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <div className="font-semibold text-red-900 dark:text-red-100">
-                              {memberToDelete.firstName}{" "}
-                              {memberToDelete.lastName}
+                            <div className="font-semibold capitalize text-red-900 dark:text-red-100">
+                              {memberToDelete.user.firstName}{" "}
+                              {memberToDelete.user.lastName}
                             </div>
                             <div className="text-sm text-red-700 dark:text-red-300">
-                              TNS: {memberToDelete.tns_number || "Not assigned"}
+                              TNS: {memberToDelete.tnsNumber || "Not assigned"}
                             </div>
                             <div className="text-sm text-red-600 dark:text-red-400">
-                              {memberToDelete.email}
+                              {memberToDelete.user.email}
                             </div>
                           </div>
                         </div>
@@ -4674,7 +4196,7 @@ const AdminPortal = () => {
                         onChange={(e) => setDeleteConfirmation(e.target.value)}
                         placeholder="Type DELETE to confirm"
                         className="border-2 border-red-400 dark:border-red-600 focus:border-red-600 focus:ring-2 focus:ring-red-500 bg-white dark:bg-red-950/10 text-center font-mono font-bold text-lg tracking-wider"
-                        disabled={isDeleting}
+                        disabled={deleteMember.isPending}
                         autoComplete="off"
                         autoFocus
                       />
@@ -4684,18 +4206,20 @@ const AdminPortal = () => {
               </AlertDialogHeader>
               <AlertDialogFooter className="gap-3 pt-6">
                 <AlertDialogCancel
-                  disabled={isDeleting}
+                  disabled={deleteMember.isPending}
                   className="border-gray-300 hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-800"
                   onClick={() => setDeleteConfirmation("")}
                 >
                   Cancel
                 </AlertDialogCancel>
                 <AlertDialogAction
-                  onClick={deleteMember}
-                  disabled={isDeleting || deleteConfirmation !== "DELETE"}
+                  onClick={() => deleteMember.mutate()}
+                  disabled={
+                    deleteMember.isPending || deleteConfirmation !== "DELETE"
+                  }
                   className="bg-red-600 hover:bg-red-700 text-white shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isDeleting ? (
+                  {deleteMember.isPending ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Comprehensive Deletion In Progress...

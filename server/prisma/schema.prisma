@@ -58,10 +58,12 @@ model Session {
 
 model Contribution {
   id               String           @id @default(ulid())
-  amount           Decimal
+  amount           Decimal          @db.Decimal(10, 2)
   contributionType ContributionType
   project          Project?         @relation(fields: [projectId], references: [id]) // only if type = cases
   case             Case?            @relation(fields: [caseId], references: [id]) // only if type = cases
+  member           Member           @relation(references: [id], fields: [memberId], onDelete: Cascade)
+  memberId         String
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
   transactions     Transaction[]
@@ -99,8 +101,8 @@ model Transaction {
   id                String             @id @default(ulid())
   transactionMethod TransactionMenthod // "cash" | "mpesa"
   transactionType   TransactionType // "contribution" | "disbursement(payout)"
-  amount            Decimal
-  transactionStatus TransactionStatus  @default(pending)
+  amount            Decimal            @db.Decimal(10, 2)
+  transactionStatus TransactionStatus  @default(pending) // pending | completed
   member            Member             @relation(fields: [memberId], references: [id], onDelete: Cascade)
   memberId          String
   transactedById    String?
@@ -117,14 +119,15 @@ model Transaction {
 }
 
 model Balance {
-  id        String   @id @default(ulid())
-  member    Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  memberId  String
-  year      Int
-  month     Int // 0-11
-  prepaid   Decimal  @default(0) // positive: money paid in advance
-  due       Decimal  @default(0) // positive: money owed for past months
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(ulid())
+  member       Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  memberId     String   @unique
+  currentMonth Int
+  currentYear  Int
+  status       String // "open" | "paid"
+  prepaid      Decimal  @default(0) @db.Decimal(10, 2) // positive: money paid in advance
+  due          Decimal  @default(0) @db.Decimal(10, 2) // positive: money owed for past months
+  updatedAt    DateTime @updatedAt
 
   @@map("member_balances")
 }
@@ -162,13 +165,14 @@ model Member {
   children              Child[]
   transactions          Transaction[]
   balance               Balance[] // Per month
+  contributions         Contribution[]
 
   @@map("members")
 }
 
 model Disbursement {
   id                 String                 @id @default(ulid())
-  amount             Decimal
+  amount             Decimal                @db.Decimal(10, 2)
   reason             String?                @db.Text
   disbursementType   DisbursementType?
   status             DisbursementStatus     @default(pending)
@@ -202,17 +206,18 @@ model DisbursementDocument {
 }
 
 model MpesaTransaction {
-  id                 String      @id @default(ulid())
-  transactionId      String      @unique
-  phone              String
+  id                 String       @id @default(ulid())
+  transactionId      String       @unique
+  phone              String?
   checkoutRequestId  String?
   merchantRequestId  String?
   mpesaReceiptNumber String?
   resultCode         String?
   resultDesc         String?
-  transaction        Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-  createdAt          DateTime    @default(now())
-  updatedAt          DateTime    @updatedAt
+  transaction        Transaction? @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  paymentDate        DateTime?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
 
   @@map("mpesa_transactions")
 }
@@ -443,6 +448,7 @@ enum ExpenseCategory {
 enum TransactionMenthod {
   mpesa
   cash
+  manual_payment
 }
 
 enum TransactionType {

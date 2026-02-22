@@ -27,6 +27,8 @@ import {
 import axios from "axios";
 import { processFile } from "@/utils/imageCompressor";
 
+const apiUrl = import.meta.env.VITE_API_URL;
+
 interface MemberInfo {
   firstName: string;
   lastName: string;
@@ -577,16 +579,12 @@ const MultiStepRegistration = () => {
       }
     }
 
-    const res = await axios.post(
-      `http://localhost:3000/api/member-auth/new`,
-      formData,
-      {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-        withCredentials: true,
+    const res = await axios.post(`${apiUrl}/member-auth/new`, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
       },
-    );
+      withCredentials: true,
+    });
 
     return res.data;
   };
@@ -605,7 +603,7 @@ const MultiStepRegistration = () => {
       if (data?.success) {
         toast({
           title: "Registration Submitted!",
-          description: `Your member registration has been submitted successfully.}`,
+          description: `Your member registration has been submitted successfully.`,
         });
         resetInputs();
       }
