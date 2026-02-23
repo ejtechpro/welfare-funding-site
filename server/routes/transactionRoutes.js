@@ -40,7 +40,7 @@ router.post("/manual-payment", async (req, res) => {
           projectId: data.projectId ?? null,
           caseId: data.caseId ?? null,
         },
-        select: { id: true },
+        select: { id: true, member: { select: { id: true } } },
       });
 
       // 2️⃣ Record transaction
@@ -57,18 +57,26 @@ router.post("/manual-payment", async (req, res) => {
         select: { id: true },
       });
 
-      if (data.referenceNumbe !== "") {
-        tx.mpesaTransaction.create({
+      if (data.referenceNumber !== "") {
+        await tx.mpesaTransaction.create({
           data: {
             transactionId: txn.id,
-            mpesaReceiptNumber: data.referenceNumbe,
-            paymentDate: data.paymentDate,
+            mpesaReceiptNumber: data.referenceNumber,
+            paymentDate: new Date(data.paymentDate).toISOString(),
           },
         });
       }
 
       // 3️⃣ Only adjust balance for monthly contribution
       if (data.contributionType === "monthly_contribution") {
+        //TODO: Update balance account directly.
+        // await tx.member.update({
+        //   where: { id: data.memberId },
+        //   data: {
+        //     balance: (contribution?.member?.balance ?? 0) + paymentAmount,
+        //   },
+        // });
+
         const now = new Date();
         const thisMonth = now.getMonth() + 1;
         const thisYear = now.getFullYear();

@@ -31,10 +31,12 @@ model User {
   tasks            Task[] // submitted
 
   // approvals this user RECEIVED
-  approvalsReceived StaffApproval[] @relation("approved_received")
+  approvalsReceived      StaffApproval[]  @relation("approved_received")
   // approvals this user GAVE
-  approvalsGiven    StaffApproval[] @relation("approver_given")
-  transactedBy      Transaction[]   @relation("transactedBy")
+  approvalsGiven         StaffApproval[]  @relation("approver_given")
+  transactedBy           Transaction[]    @relation("transactedBy")
+  monthlyExpenseApproved MonthlyExpense[]
+  disbursementsApproved  Disbursement[]
 
   @@index([email])
   @@map("users")
@@ -57,50 +59,40 @@ model Session {
 }
 
 model Contribution {
-  id               String           @id @default(ulid())
-  amount           Decimal          @db.Decimal(10, 2)
-  contributionType ContributionType
-  project          Project?         @relation(fields: [projectId], references: [id]) // only if type = cases
-  case             Case?            @relation(fields: [caseId], references: [id]) // only if type = cases
-  member           Member           @relation(references: [id], fields: [memberId], onDelete: Cascade)
-  memberId         String
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
-  transactions     Transaction[]
-  projectId        String?
-  caseId           String?
+  id                 String            @id @default(ulid())
+  amount             Decimal           @db.Decimal(10, 2)
+  member             Member            @relation(references: [id], fields: [memberId], onDelete: Cascade)
+  memberId           String
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  transactions       Transaction[]
+  projectId          String?
+  caseId             String?
+  contributionTypeId String
+  contributionType   ContributionType? @relation(fields: [contributionTypeId], references: [id], onDelete: Cascade)
 
   @@map("contributions")
 }
 
-model Project {
-  id            String         @id @default(ulid())
-  name          String
-  description   String?        @db.Text
-  status        ProjectStatus //in_progress | completed | cancelled
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  contributions Contribution[]
+model ContributionType {
+  id             String                         @id @default(ulid())
+  name           String                         @unique
+  category       ContributionTypeCategory
+  defaultAmount  Decimal                        @default(0) @db.Decimal(10, 2)
+  status         ContributionTypeCategoryStatus @default(pending)
+  description    String?                        @db.Text
+  contributions  Contribution[]
+  contributionId String
+  createdAt      DateTime                       @default(now())
+  updatedAt      DateTime                       @updatedAt
 
-  @@map("tns_projects")
-}
-
-model Case {
-  id            String         @id @default(ulid())
-  name          String
-  description   String?        @db.Text
-  status        CaseStatus //in_progress | completed | cancelled
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  contributions Contribution[]
-
-  @@map("tns_cases")
+  @@map("contribution_types")
 }
 
 model Transaction {
   id                String             @id @default(ulid())
-  transactionMethod TransactionMenthod // "cash" | "mpesa"
-  transactionType   TransactionType // "contribution" | "disbursement(payout)"
+  transactionMethod TransactionMenthod // cash | mpesa
+  transactionType   TransactionType // contribution | disbursement(payout) | expenditure
   amount            Decimal            @db.Decimal(10, 2)
   transactionStatus TransactionStatus  @default(pending) // pending | completed
   member            Member             @relation(fields: [memberId], references: [id], onDelete: Cascade)
@@ -114,6 +106,8 @@ model Transaction {
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   mpesaTransaction  MpesaTransaction?
+  monthlyExpense    MonthlyExpense?    @relation(fields: [monthlyExpenseId], references: [id], onDelete: Cascade)
+  monthlyExpenseId  String?
 
   @@map("transactions")
 }
@@ -157,17 +151,34 @@ model Member {
   documents             MemberDocument[]
   settings              MemberSetting[]
   beneficiaries         Beneficiary[]
-  createdAt             DateTime           @default(now())
-  updatedAt             DateTime           @updatedAt
   approvals             MemberApproval[]
   parents               Parent[]
   spouses               Spouse[]
   children              Child[]
   transactions          Transaction[]
-  balance               Balance[] // Per month
+  balance               Balance[] // FIXED TO 100
   contributions         Contribution[]
+  createdAt             DateTime           @default(now()) //This will also handle the exact due date of the member so cron should run everyday at 12 noon and check if the user has finished 1 month then subtract 100 from his account immediadelly
+  updatedAt             DateTime           @updatedAt
 
   @@map("members")
+}
+
+model MonthlyExpense {
+  id              String               @id @default(ulid())
+  amount          Decimal              @default(0) @db.Decimal(10, 2)
+  expenseCategory ExpenseCategory
+  approvedBy      User?                @relation(fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedById    String?
+  description     String?              @db.LongText
+  status          MonthlyExpenseStatus // paid | pending | cancelled | approved
+  expenseDate     DateTime // the actual date of the expense
+  transactions    Transaction[]
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  @@index([expenseCategory])
+  @@map("monthly_expenses")
 }
 
 model Disbursement {
@@ -176,7 +187,8 @@ model Disbursement {
   reason             String?                @db.Text
   disbursementType   DisbursementType?
   status             DisbursementStatus     @default(pending)
-  approvedBy         String? // staff who approved
+  approvedBy         User?                  @relation(fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedById       String?
   bereavementFormUrl String? // optional URL to document
   disbursementDate   DateTime // date when it is/will be disbursed
   createdAt          DateTime               @default(now())
@@ -324,21 +336,6 @@ model Beneficiary {
   @@map("beneficiaries")
 }
 
-model MonthlyExpense {
-  id              String          @id @default(ulid())
-  amount          Float
-  expenseCategory ExpenseCategory
-  description     String?         @db.Text
-  approvedBy      String?
-  expenseDate     DateTime // the actual date of the expense
-  monthYear       String // e.g., "2026-02" for easy reporting
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-
-  @@index([expenseCategory])
-  @@map("monthly_expenses")
-}
-
 model MemberApproval {
   id           String       @id @default(ulid())
   approvalType ApprovalType
@@ -437,11 +434,16 @@ enum MaritalStatus {
 }
 
 enum ExpenseCategory {
+  rent
   utilities
   salaries
-  rent
-  supplies
+  office_supplies
   maintenance
+  transportation
+  communication
+  professional_fees
+  insurance
+  marketing
   other
 }
 
@@ -473,12 +475,19 @@ enum MembershipType {
   family
 }
 
-enum ContributionType {
+enum ContributionTypeCategory {
   monthly_contribution
   case
   project
   registration
   other
+}
+
+enum ContributionTypeCategoryStatus {
+  active
+  pending
+  cancelled
+  completed
 }
 
 enum ContributionStatus {
@@ -497,6 +506,15 @@ enum DisbursementStatus {
   pending
   approved
   rejected
+  cancelled
+  paid
+}
+
+enum MonthlyExpenseStatus {
+  pending
+  approved
+  rejected
+  cancelled
   paid
 }
 
@@ -526,16 +544,4 @@ enum TaskType {
   maintenance
   follow_up
   other
-}
-
-enum ProjectStatus {
-  pending
-  completed
-  cancelled
-}
-
-enum CaseStatus {
-  in_progress
-  completed
-  cancelled
 }

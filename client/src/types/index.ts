@@ -204,3 +204,12 @@ export type BalanceHealthCheckResponse = {
   balances: BalanceAnomaly[];
   anomalyCount: number;
 };
+
+export interface MonthlyExpense {
+  id: string;
+  amount: number;
+  expenseDate: string;
+  expenseCategory: string;
+  description?: string;
+  status: "paid" | "pending" | "rejected" | "cancelled" | "approved"
+}

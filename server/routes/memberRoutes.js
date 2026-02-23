@@ -5,7 +5,6 @@ const prisma = require("../config/conn.js");
 
 const router = express.Router();
 
-
 router.get("/all", async (req, res) => {
   try {
     const members = await prisma.member.findMany({
@@ -44,6 +43,8 @@ router.put("/approve/:memberId", async (req, res) => {
     //     error: "This account must be verified before it can be approved.",
     //   });
     // }
+
+    //TODO: Prevent member approval if already approved.
 
     const txn = await prisma.$transaction(async (tx) => {
       //Atomic counter increment (NO lock needed)
@@ -122,7 +123,7 @@ router.put("/reject/:memberId", async (req, res) => {
     });
     res.status(200).json({ success: true });
   } catch (error) {
-    console.log(error)
+    console.log(error);
     res.status(500).json({ error: "Internal server error!" });
   }
 });
@@ -151,7 +152,6 @@ router.delete("/delete-member/:memberId", async (req, res) => {
     res.status(500).json({ error: "Internal server error!" });
   }
 });
-
 
 router.put("/update-member", (req, res) => {
   try {

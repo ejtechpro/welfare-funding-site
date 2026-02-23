@@ -100,10 +100,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getMembersOptions } from "@/queries/memberQueryOptions";
 import { getStaffOptions } from "@/queries/userQueryOptions";
 import { memberApproval, memberDeletion, memberRejection } from "@/api/member";
-import type { Member, Staff } from "@/types";
+import type { Member, MonthlyExpense, Staff } from "@/types";
 import { approveStaffWithPwd, staffRejection } from "@/api/user";
 import { BalanceDebugTable } from "@/components/BalanceDebugTable";
 import * as XLSX from "xlsx";
+import { addMonthlyExpense } from "@/api/expenses";
+import ContributionTypeForm from "@/components/ContributionTypeForm";
 
 interface MemberRegistration {
   id: string;
@@ -181,14 +183,6 @@ interface Disbursement {
   status: string;
 }
 
-interface MonthlyExpense {
-  id: string;
-  amount: number;
-  expense_date: string;
-  expense_category: string;
-  description?: string;
-  month_year: string;
-}
 
 const AdminPortal = () => {
   const { user, signOut } = useAuth();
@@ -375,6 +369,32 @@ const AdminPortal = () => {
       } else {
         toast.error("Error occurred", {
           description: "Something went wrong, Try again!",
+          duration: 7000,
+        });
+      }
+    },
+  });
+
+  const recordExpense = useMutation({
+    mutationFn: (data: MonthlyExpense) => addMonthlyExpense(data),
+    onSuccess: async (data: any) => {
+      if (data?.success) {
+        await queryClient.invalidateQueries({ queryKey: ["staffs"] });
+        toast.success(`Monthly expenditure added successfully!`, {
+          description: `The expenditure has been recoreded successfully!`,
+          duration: 5000,
+        });
+      }
+    },
+    onError: (error: any) => {
+      if (error?.response?.data?.error) {
+        toast.error("Error occurred", {
+          description: error?.response?.data?.error,
+          duration: 7000,
+        });
+      } else {
+        toast.error("Error occurred", {
+          description: `Error ${error.message}`,
           duration: 7000,
         });
       }
@@ -641,7 +661,7 @@ const AdminPortal = () => {
       const { data: expensesData, error: expensesError } = await supabase
         .from("monthly_expenses")
         .select("*")
-        .order("expense_date", { ascending: false });
+        .order("expenseDate", { ascending: false });
 
       if (expensesError) throw expensesError;
 
@@ -1400,6 +1420,7 @@ const AdminPortal = () => {
                     </Badge>
                   )}
                 </div>
+                <ContributionTypeForm/>
               </div>
             </div>
             <div className="flex items-center space-x-3">
@@ -3186,8 +3207,8 @@ const AdminPortal = () => {
                           {Object.entries(
                             monthlyExpenses.reduce(
                               (acc, expense) => {
-                                acc[expense.expense_category] =
-                                  (acc[expense.expense_category] || 0) +
+                                acc[expense.expenseCategory] =
+                                  (acc[expense.expenseCategory] || 0) +
                                   Number(expense.amount);
                                 return acc;
                               },
