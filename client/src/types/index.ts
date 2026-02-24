@@ -205,11 +205,44 @@ export type MemberBalanceHealthCheckResponse = {
   anomalyCount: number;
 };
 
+export type MonthlyExpenseStatus =
+  | "paid"
+  | "pending"
+  | "cancelled"
+  | "approved";
+
+export const EXPENSE_CATEGORIES = [
+  "rent",
+  "utilities",
+  "salaries",
+  "office_supplies",
+  "maintenance",
+  "transportation",
+  "communication",
+  "professional_fees",
+  "insurance",
+  "marketing",
+  "other",
+] as const;
+
+export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
+
 export interface MonthlyExpense {
   id: string;
   amount: number;
-  expenseDate: string;
-  expenseCategory: string;
-  description?: string;
-  status: "paid" | "pending" | "rejected" | "cancelled" | "approved";
+  expenseCategory: ExpenseCategory;
+  approvedBy?: User | null;
+  approvedById?: string | null;
+  description?: string | null;
+  status: MonthlyExpenseStatus;
+  expenseDate: Date;
+  transactions: [];
 }
+
+export type CreateMonthlyExpenseDTO = {
+  amount: number;
+  expenseCategory: ExpenseCategory;
+  description?: string;
+  expenseDate: Date;
+  status: MonthlyExpenseStatus;
+};

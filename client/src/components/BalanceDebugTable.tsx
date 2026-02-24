@@ -73,7 +73,7 @@ export const BalanceDebugTable = () => {
             {data?.members.map((m: any) => {
               return (
                 <>
-                  <tr key={m.memberId} className="hover:bg-gray-50">
+                  <tr key={m.id} className="hover:bg-gray-50">
                     <td className="px-3 py-1.5 font-bold text-gray-900">
                       {m.tnsNumber ?? m.memberId}
                     </td>
