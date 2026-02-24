@@ -187,21 +187,21 @@ export interface Staff {
   updatedAt: Date;
 }
 
-// Each anomaly object
-export type BalanceAnomaly = {
+// Each member object in the health check
+export type MemberBalance = {
   memberId: string;
-  prepaid: string;
-  currentMonth: String;
-  currentYear: String;
-  tnsNumber: string;
-  due: string;
-  status: "open" | "paid";
+  tnsNumber: string | null;
+  balance: string; // decimal string
+  billingDate: string | null; // ISO string
+  registrationStatus: string;
+  userStatus: "active" | "inactive";
+  reason: string;
 };
 
-// Response type for your health check route
-export type BalanceHealthCheckResponse = {
-  totalBalances: number;
-  balances: BalanceAnomaly[];
+// Response type for the health check route
+export type MemberBalanceHealthCheckResponse = {
+  totalMembers: number;
+  members: MemberBalance[];
   anomalyCount: number;
 };
 
@@ -211,5 +211,5 @@ export interface MonthlyExpense {
   expenseDate: string;
   expenseCategory: string;
   description?: string;
-  status: "paid" | "pending" | "rejected" | "cancelled" | "approved"
+  status: "paid" | "pending" | "rejected" | "cancelled" | "approved";
 }

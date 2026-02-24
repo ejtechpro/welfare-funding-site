@@ -22,23 +22,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getMembersOptions } from "@/queries/memberQueryOptions";
 import { manualPayment } from "@/api/member";
-
-// Define allowed payment types as constants for consistency
-const PAYMENT_TYPES = {
-  MONTHLY: "monthly_contribution",
-  // CASES: "case",
-  // PROJECTS: "project",
-  // REGISTRATION: "registration",
-  // OTHERS: "other",
-} as const;
-
-const PAYMENT_TYPE_LABELS = {
-  [PAYMENT_TYPES.MONTHLY]: "Monthly contribution",
-  // [PAYMENT_TYPES.CASES]: "Cases",
-  // [PAYMENT_TYPES.PROJECTS]: "Projects",
-  // [PAYMENT_TYPES.REGISTRATION]: "Registration",
-  // [PAYMENT_TYPES.OTHERS]: "Others",
-} as const;
+import { getContributionType } from "@/api/contributions";
 
 export const ManualPaymentEntry = () => {
   const { user } = useAuth();
@@ -46,15 +30,28 @@ export const ManualPaymentEntry = () => {
 
   const [amount, setAmount] = useState("");
   const [selectedMember, setSelectedMember] = useState("");
-  const [contributionType, setPaymentType] = useState<string>(
-    PAYMENT_TYPES.MONTHLY,
-  );
   const [referenceNumber, setReferenceNumber] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("");
   const [paymentDate, setPaymentDate] = useState(
     new Date().toISOString().split("T")[0],
   );
 
   const members = useQuery(getMembersOptions());
+
+  const contributionTypes = useQuery({
+    queryKey: ["contribution-types"],
+    queryFn: async () => {
+      const res = await getContributionType();
+      return res?.types;
+    },
+  });
+
+  const [contributionType, setPaymentType] = useState<string>(() => {
+    const typeId = contributionTypes?.data?.find(
+      (t: any) => t?.category == "monthly",
+    );
+    return typeId?.id;
+  });
 
   const approvedMembers = useMemo(() => {
     if (members?.data) {
@@ -76,8 +73,7 @@ export const ManualPaymentEntry = () => {
         setAmount("");
         setSelectedMember("");
         setReferenceNumber("");
-        // setPaymentDate(new Date().toISOString());
-        setPaymentType(PAYMENT_TYPES.MONTHLY);
+        setPaymentType("");
       }
     },
     onError: (error: any) => {
@@ -86,13 +82,17 @@ export const ManualPaymentEntry = () => {
           description: error?.response?.data?.error,
           duration: 7000,
         });
-      } else {
-        console.log(error);
-        toast.error("Error occurred", {
-          description: "Something went wrong, during processing!",
-          duration: 7000,
-        });
+        return;
       }
+
+      toast.error("Error occurred", {
+        description: `${error.message}`,
+        duration: 7000,
+      });
+      setAmount("");
+      setSelectedMember("");
+      setReferenceNumber("");
+      setPaymentType("");
     },
   });
 
@@ -109,10 +109,11 @@ export const ManualPaymentEntry = () => {
       return;
     }
 
-    // Validate payment type is one of the allowed types
-    const allowedPaymentTypes = Object.values(PAYMENT_TYPES);
-    if (!allowedPaymentTypes.includes(contributionType as any)) {
-      toast.error("Invalid payment type selected");
+    if (paymentMethod === "mpesa" && !referenceNumber?.trim()) {
+      toast.error(
+        "You selected M-Pesa. Please provide the transaction reference number.",
+        { duration: 30000 },
+      );
       return;
     }
 
@@ -126,14 +127,19 @@ export const ManualPaymentEntry = () => {
       );
       return;
     }
+    const selectedType = contributionTypes?.data?.find(
+      (t: any) => t.id === contributionType,
+    );
 
     const paymentData = {
-      transactionMethod: "manual_payment",
+      transactionMethod: paymentMethod,
       memberId: selectedMember,
       amount: parseFloat(amount),
-      contributionType,
+      contributionType: selectedType?.category,
       paymentDate,
       referenceNumber,
+      projectId: selectedType?.category == "project" ? selectedType?.id : null,
+      caseId: selectedType?.category == "case" ? selectedType?.id : null,
     };
     makeManualPayment.mutate(paymentData);
   };
@@ -220,18 +226,29 @@ export const ManualPaymentEntry = () => {
                   <SelectValue placeholder="Select payment type" />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(PAYMENT_TYPES).map(([key, value]) => (
-                    <SelectItem key={value} value={value}>
-                      {PAYMENT_TYPE_LABELS[value]}
-                    </SelectItem>
-                  ))}
+                  {contributionTypes.isLoading ? (
+                    <div className="text-gray-500">Loading...</div>
+                  ) : contributionTypes.data?.length > 0 ? (
+                    contributionTypes.data?.map((type: any) => (
+                      <SelectItem key={type.id} value={type.id}>
+                        <span className="font-bold capitalize text-gray-500">
+                          ({type.category})
+                        </span>
+                        {" - "}
+                        <span className=" capitalize">{type.name}</span>
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <p className=" text-gray-500">
+                      No contribution type added by admin.
+                    </p>
+                  )}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
                 Only these payment types are allowed for manual entry
               </p>
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="paymentDate">Payment Date</Label>
               <Input
@@ -242,17 +259,42 @@ export const ManualPaymentEntry = () => {
                 required
               />
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="reference">Reference Number (Optional)</Label>
-              <Input
-                id="reference"
-                type="text"
-                placeholder="MPESA receipt or reference"
-                value={referenceNumber}
-                onChange={(e) => setReferenceNumber(e.target.value)}
-              />
+              <Label htmlFor="PymentMethod">Payment Method *</Label>
+              <Select
+                value={paymentMethod}
+                onValueChange={(value: string) => setPaymentMethod(value)}
+                required={paymentMethod == "mpesa"}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select payment method" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem key="mpesa" value="mpesa">
+                    M-Pesa
+                  </SelectItem>
+                  <SelectItem key="cash" value="cash">
+                    Cash
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Method used by the member to make payment.
+              </p>
             </div>
+
+            {paymentMethod == "mpesa" && (
+              <div className="space-y-2">
+                <Label htmlFor="reference">Reference Number *</Label>
+                <Input
+                  id="reference"
+                  type="text"
+                  placeholder="MPESA receipt or reference"
+                  value={referenceNumber}
+                  onChange={(e) => setReferenceNumber(e.target.value)}
+                />
+              </div>
+            )}
 
             <Button
               type="submit"

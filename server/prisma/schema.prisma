@@ -59,32 +59,29 @@ model Session {
 }
 
 model Contribution {
-  id                 String            @id @default(ulid())
-  amount             Decimal           @db.Decimal(10, 2)
-  member             Member            @relation(references: [id], fields: [memberId], onDelete: Cascade)
-  memberId           String
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
-  transactions       Transaction[]
-  projectId          String?
-  caseId             String?
-  contributionTypeId String
-  contributionType   ContributionType? @relation(fields: [contributionTypeId], references: [id], onDelete: Cascade)
+  id               String                   @id @default(ulid())
+  amount           Decimal                  @db.Decimal(10, 2)
+  member           Member                   @relation(references: [id], fields: [memberId], onDelete: Cascade)
+  memberId         String
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  transactions     Transaction[]
+  projectId        String?
+  caseId           String?
+  contributionType ContributionTypeCategory
 
   @@map("contributions")
 }
 
 model ContributionType {
-  id             String                         @id @default(ulid())
-  name           String                         @unique
-  category       ContributionTypeCategory
-  defaultAmount  Decimal                        @default(0) @db.Decimal(10, 2)
-  status         ContributionTypeCategoryStatus @default(pending)
-  description    String?                        @db.Text
-  contributions  Contribution[]
-  contributionId String
-  createdAt      DateTime                       @default(now())
-  updatedAt      DateTime                       @updatedAt
+  id            String                         @id @default(ulid())
+  name          String                         @unique
+  category      ContributionTypeCategory
+  defaultAmount Decimal                        @default(0) @db.Decimal(10, 2)
+  status        ContributionTypeCategoryStatus @default(inactive)
+  description   String?                        @db.Text
+  createdAt     DateTime                       @default(now())
+  updatedAt     DateTime                       @updatedAt
 
   @@map("contribution_types")
 }
@@ -112,19 +109,19 @@ model Transaction {
   @@map("transactions")
 }
 
-model Balance {
-  id           String   @id @default(ulid())
-  member       Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  memberId     String   @unique
-  currentMonth Int
-  currentYear  Int
-  status       String // "open" | "paid"
-  prepaid      Decimal  @default(0) @db.Decimal(10, 2) // positive: money paid in advance
-  due          Decimal  @default(0) @db.Decimal(10, 2) // positive: money owed for past months
-  updatedAt    DateTime @updatedAt
+// model Balance {
+//   id           String   @id @default(ulid())
+//   member       Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+//   memberId     String   @unique
+//   currentMonth Int
+//   currentYear  Int
+//   status       String // "open" | "paid"
+//   prepaid      Decimal  @default(0) @db.Decimal(10, 2) // positive: money paid in advance
+//   due          Decimal  @default(0) @db.Decimal(10, 2) // positive: money owed for past months
+//   updatedAt    DateTime @updatedAt
 
-  @@map("member_balances")
-}
+//   @@map("member_balances")
+// }
 
 model Member {
   id                    String             @id @default(ulid())
@@ -156,7 +153,8 @@ model Member {
   spouses               Spouse[]
   children              Child[]
   transactions          Transaction[]
-  balance               Balance[] // FIXED TO 100
+  balance               Decimal            @default(0) @db.Decimal(10, 2) // FIXED TO 100
+  billingDate           DateTime?
   contributions         Contribution[]
   createdAt             DateTime           @default(now()) //This will also handle the exact due date of the member so cron should run everyday at 12 noon and check if the user has finished 1 month then subtract 100 from his account immediadelly
   updatedAt             DateTime           @updatedAt
@@ -449,8 +447,7 @@ enum ExpenseCategory {
 
 enum TransactionMenthod {
   mpesa
-  cash
-  manual_payment
+  cash //  Manual Payment
 }
 
 enum TransactionType {
@@ -476,7 +473,7 @@ enum MembershipType {
 }
 
 enum ContributionTypeCategory {
-  monthly_contribution
+  monthly
   case
   project
   registration
@@ -485,7 +482,7 @@ enum ContributionTypeCategory {
 
 enum ContributionTypeCategoryStatus {
   active
-  pending
+  inactive
   cancelled
   completed
 }

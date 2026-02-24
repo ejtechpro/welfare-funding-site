@@ -2,15 +2,17 @@ const express = require("express");
 const { Decimal } = require("@prisma/client");
 const prisma = require("../config/conn.js");
 const cron = require("node-cron");
+const { monthlyAmout } = require("../controls/monthlyAmoutHelper.js");
 
 const router = express.Router();
 
-// Fixed MONTHLY_AMOUNT
-const MONTHLY_AMOUNT = new Decimal(100);
 router.post("/manual-payment", async (req, res) => {
   try {
     const data = req.body;
     const { id: uid } = req.user;
+
+    // Fixed MONTHLY_AMOUNT
+    const MONTHLY_AMOUNT = await monthlyAmout();
 
     // ✅ Basic validation
     if (!data.amount || !data.memberId || !data.contributionType) {
@@ -57,152 +59,54 @@ router.post("/manual-payment", async (req, res) => {
         select: { id: true },
       });
 
-      if (data.referenceNumber !== "") {
+      if (data.referenceNumber.trim() && data.transactionMethod == "mpesa") {
         await tx.mpesaTransaction.create({
           data: {
             transactionId: txn.id,
             mpesaReceiptNumber: data.referenceNumber,
-            paymentDate: new Date(data.paymentDate).toISOString(),
+            paymentDate: new Date(data.paymentDate)?.toISOString(),
           },
         });
       }
 
       // 3️⃣ Only adjust balance for monthly contribution
-      if (data.contributionType === "monthly_contribution") {
-        //TODO: Update balance account directly.
-        // await tx.member.update({
-        //   where: { id: data.memberId },
-        //   data: {
-        //     balance: (contribution?.member?.balance ?? 0) + paymentAmount,
-        //   },
-        // });
-
+      if (data.contributionType === "monthly") {
         const now = new Date();
-        const thisMonth = now.getMonth() + 1;
-        const thisYear = now.getFullYear();
 
-        const balance = await tx.balance.upsert({
-          where: { memberId: data.memberId },
-          update: {},
-          create: {
-            memberId: data.memberId,
-            prepaid: new Decimal(0),
-            due: new Decimal(0),
-            currentMonth: thisMonth,
-            currentYear: thisYear,
-            status: "open",
+        // Fetch member and balance
+        const member = await tx.member.findUnique({
+          where: { id: data.memberId },
+          select: { id: true, balance: true, billingDate: true },
+        });
+
+        if (!member) throw new Error("Member not found");
+
+        let balance = new Decimal(member.balance ?? 0);
+
+        // STEP 1: Add payment to balance
+        balance = balance.plus(paymentAmount);
+
+        // STEP 2: Save updated balance
+        const updatedMember = await tx.member.update({
+          where: { id: member.id },
+          data: { balance },
+          select: {
+            id: true,
+            balance: true,
           },
         });
 
-        let prepaid = new Decimal(balance.prepaid);
-        let due = new Decimal(balance.due);
-        let status = balance.status;
-        let remaining = new Decimal(paymentAmount);
-
-        // ✅ STEP 1: If month/year changed → roll forward first
-        const isSameMonth =
-          balance.currentMonth === thisMonth &&
-          balance.currentYear === thisYear;
-
-        if (!isSameMonth) {
-          // apply monthly charge
-          if (prepaid.greaterThanOrEqualTo(MONTHLY_AMOUNT)) {
-            prepaid = prepaid.minus(MONTHLY_AMOUNT);
-            status = "paid";
-          } else {
-            const shortfall = MONTHLY_AMOUNT.minus(prepaid);
-            prepaid = new Decimal(0);
-            due = due.plus(shortfall);
-            status = "open";
-          }
-
-          await tx.balance.update({
-            where: { memberId: data.memberId },
-            data: {
-              prepaid,
-              due,
-              currentMonth: thisMonth,
-              currentYear: thisYear,
-              status,
-            },
-          });
-        }
-
-        console.log("Before payment", {
-          prepaid: prepaid.toString(),
-          due: due.toString(),
-          status,
-        });
-
-        // ✅ STEP 2: Pay existing due first
-        if (due.greaterThan(0)) {
-          if (remaining.greaterThanOrEqualTo(due)) {
-            remaining = remaining.minus(due);
-            due = new Decimal(0);
-            status = "paid";
-          } else {
-            due = due.minus(remaining);
-            remaining = new Decimal(0);
-          }
-        }
-
-        // ✅ STEP 2.5: Close current month if payment can fully cover it
-        if (
-          status === "open" &&
-          remaining.greaterThanOrEqualTo(MONTHLY_AMOUNT)
-        ) {
-          remaining = remaining.minus(MONTHLY_AMOUNT);
-          status = "paid";
-        }
-
-        // ✅ STEP 3: If month still open and payment < monthly → create due
-        if (
-          status === "open" &&
-          remaining.greaterThan(0) &&
-          remaining.lessThan(MONTHLY_AMOUNT)
-        ) {
-          const shortfall = MONTHLY_AMOUNT.minus(remaining);
-          due = due.plus(shortfall);
-          remaining = new Decimal(0);
-        }
-
-        // ✅ STEP 4: Anything extra goes to prepaid
-        if (remaining.greaterThan(0)) {
-          prepaid = prepaid.plus(remaining);
-        }
-
-        // ✅ STEP 5: Save
-        const updatedBalance = await tx.balance.update({
-          where: { memberId: data.memberId },
-          data: {
-            prepaid,
-            due,
-            status,
-          },
-        });
-
-        console.log("After payment", {
-          prepaid: prepaid.toString(),
-          due: due.toString(),
-          status,
-        });
+        console.log(`Member ${member.id} new balance: ${balance?.toString()}`);
 
         return {
           contributionId: contribution.id,
-          balance: updatedBalance,
+          balance: updatedMember?.balance,
         };
       }
     });
 
     return res.status(200).json({
       success: true,
-      contributionId: result.contributionId,
-      balance: result.balance
-        ? {
-            prepaid: result.balance.prepaid.toString(),
-            due: result.balance.due.toString(),
-          }
-        : null,
     });
   } catch (error) {
     console.error("Manual payment error:", error);
@@ -212,91 +116,63 @@ router.post("/manual-payment", async (req, res) => {
 
 router.get("/balance-health-check", async (req, res) => {
   try {
-    const balances = await prisma.balance.findMany({
-      include: {
-        member: {
-          select: {
-            tnsNumber: true,
-          },
-        },
+    const members = await prisma.member.findMany({
+      select: {
+        id: true,
+        tnsNumber: true,
+        balance: true,
+        billingDate: true,
+        registrationStatus: true,
+        user: { select: { status: true } },
       },
     });
 
-    const anomalies = balances.filter(
-      (b) => b.prepaid.greaterThan(0) && b.due.greaterThan(0),
-    );
+    // anomaly: balance positive AND negative? or for future use
+    const now = new Date();
+
+    // Build anomaly list WITH reasons
+    const anomalyMap = new Map();
+
+    members.forEach((m) => {
+      if (m.user.status === "active" && !m.billingDate) {
+        anomalyMap.set(m.id, "Active member has no billing date");
+      } else if (m.balance === null) {
+        anomalyMap.set(m.id, "Balance is null (should never happen)");
+      } else if (
+        m.user.status === "active" &&
+        m.billingDate &&
+        new Date(m.billingDate) < now
+      ) {
+        anomalyMap.set(m.id, "Billing date passed but member was not charged");
+      } else if (
+        m.billingDate &&
+        new Date(m.billingDate).getTime() >
+          new Date(now).setMonth(now.getMonth() + 1)
+      ) {
+        anomalyMap.set(m.id, "Billing date is more than 1 month in the future");
+      }
+    });
+
+    const anomalies = Array.from(anomalyMap.keys());
 
     return res.json({
-      totalBalances: balances.length,
-      balances: balances.map((b) => ({
-        memberId: b.memberId,
-        tnsNumber: b.member.tnsNumber,
-        currentMonth: b.currentMonth,
-        currentYear: b.currentYear,
-        prepaid: b.prepaid.toString(),
-        due: b.due.toString(),
-        status: b.status,
+      totalMembers: members.length,
+      members: members.map((m) => ({
+        memberId: m.id,
+        tnsNumber: m.tnsNumber,
+        balance: new Decimal(m.balance ?? 0).toString(),
+        billingDate: m.billingDate,
+        registrationStatus: m.registrationStatus,
+        userStatus: m.user.status,
+
+        // 👇 only present if anomaly exists
+        reason: anomalyMap.get(m.id) ?? null,
       })),
       anomalyCount: anomalies.length,
     });
   } catch (err) {
     console.error("Balance health check failed:", err);
     return res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-cron.schedule("0 0 1 * *", async () => {
-  console.log("📆 Running monthly rollover job...");
-
-  const now = new Date();
-  const newMonth = now.getMonth() + 1;
-  const newYear = now.getFullYear();
-
-  try {
-    const balances = await prisma.balance.findMany();
-
-    for (const b of balances) {
-      // ❗ Skip if already rolled to this month
-      if (b.currentMonth === newMonth && b.currentYear === newYear) {
-        continue;
-      }
-
-      let prepaid = new Decimal(b.prepaid);
-      let due = new Decimal(b.due);
-      let status = "open";
-
-      // ✅ Apply monthly charge
-      if (prepaid.greaterThanOrEqualTo(MONTHLY_AMOUNT)) {
-        prepaid = prepaid.minus(MONTHLY_AMOUNT);
-        status = "paid";
-      } else {
-        const shortfall = MONTHLY_AMOUNT.minus(prepaid);
-        prepaid = new Decimal(0);
-        due = due.plus(shortfall);
-        status = "open";
-      }
-
-      await prisma.balance.update({
-        where: { id: b.id },
-        data: {
-          prepaid,
-          due,
-          currentMonth: newMonth,
-          currentYear: newYear,
-          status,
-        },
-      });
-
-      console.log(`✔ Rolled over member ${b.memberId}`, {
-        prepaid: prepaid.toString(),
-        due: due.toString(),
-        status,
-      });
-    }
-
-    console.log("✅ Monthly rollover completed.");
-  } catch (err) {
-    console.error("❌ Monthly rollover failed:", err);
   }
 });
 

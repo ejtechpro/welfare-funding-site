@@ -2,6 +2,8 @@ const express = require("express");
 const multer = require("multer");
 const path = require("path");
 const prisma = require("../config/conn.js");
+const { Decimal } = require("@prisma/client");
+const { monthlyAmout } = require("../controls/monthlyAmoutHelper.js");
 
 const router = express.Router();
 
@@ -62,10 +64,24 @@ router.put("/approve/:memberId", async (req, res) => {
       const nextNumber = counter.current;
       const tnsNumber = `TNS${String(nextNumber).padStart(4, "0")}`;
 
+      const MONTHLY_AMOUNT = await monthlyAmout();
+
+      // 1️⃣ Calculate initial balance & billingDate
+      const balance = new Decimal(0).minus(MONTHLY_AMOUNT); // balance = -100
+      const now = new Date();
+
+      // BillingDate is the **next scheduled monthly charge**, starting from approval
+      // Next charge to be exactly 1 month later:
+      const billingDate = new Date(now);
+      billingDate.setMonth(billingDate.getMonth() + 1);
+      billingDate.setHours(0, 0, 0, 0); // normalize to midnight
+
       await tx.member.update({
         where: { id: memberId },
         data: {
           registrationStatus: "approved",
+          balance,
+          billingDate,
           user: {
             update: {
               status: "active",

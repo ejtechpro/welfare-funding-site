@@ -105,7 +105,8 @@ import { approveStaffWithPwd, staffRejection } from "@/api/user";
 import { BalanceDebugTable } from "@/components/BalanceDebugTable";
 import * as XLSX from "xlsx";
 import { addMonthlyExpense } from "@/api/expenses";
-import ContributionTypeForm from "@/components/ContributionTypeForm";
+import ContributionTypeModal from "@/components/ContributionTypeModal";
+
 
 interface MemberRegistration {
   id: string;
@@ -183,10 +184,10 @@ interface Disbursement {
   status: string;
 }
 
-
 const AdminPortal = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
 
   const [mpesaPayments, setMpesaPayments] = useState<MPESAPayment[]>([]);
@@ -1420,7 +1421,16 @@ const AdminPortal = () => {
                     </Badge>
                   )}
                 </div>
-                <ContributionTypeForm/>
+                <div>
+                  <Button onClick={() => setOpen(true)}>
+                    Manage Contribution Types
+                  </Button>
+
+                  <ContributionTypeModal
+                    open={open}
+                    onClose={() => setOpen(false)}
+                  />
+                </div>
               </div>
             </div>
             <div className="flex items-center space-x-3">

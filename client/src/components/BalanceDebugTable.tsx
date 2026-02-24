@@ -11,8 +11,7 @@ export const BalanceDebugTable = () => {
         <Activity className="animate-spin w-4 h-4" /> Loading balance health...
       </div>
     );
- 
-    
+
   if (isError || !data)
     return (
       <div className="flex items-center gap-2 text-red-600 font-mono text-sm">
@@ -31,8 +30,8 @@ export const BalanceDebugTable = () => {
       {/* Summary stats */}
       <div className="flex gap-6 mb-4 text-xs">
         <div className="text-gray-600">
-          <span className="font-medium">Total balances:</span>{" "}
-          {data.totalBalances}
+          <span className="font-medium">Total members:</span>{" "}
+          {data.totalMembers}
         </div>
         <div className="text-gray-600">
           <span className="font-medium">Anomalies:</span>{" "}
@@ -57,64 +56,71 @@ export const BalanceDebugTable = () => {
                 Member ID
               </th>
               <th className="px-3 py-2 text-left font-medium text-gray-600">
-                Month
-              </th>
-              <th className="px-3 py-2 text-left font-medium text-gray-600">
-                Year
+                Billing Date
               </th>
               <th className="px-3 py-2 text-right font-medium text-gray-600">
-                Prepaid
-              </th>
-              <th className="px-3 py-2 text-right font-medium text-gray-600">
-                Due
+                Balance
               </th>
               <th className="px-3 py-2 text-left font-medium text-gray-600">
-                Status
+                Registration
+              </th>
+              <th className="px-3 py-2 text-left font-medium text-gray-600">
+                User Status
               </th>
             </tr>
           </thead>
           <tbody className="divide-y">
-            {data.balances.map((b) => (
-              <tr
-                key={b.memberId + b.currentMonth + b.currentYear}
-                className="hover:bg-gray-50"
-              >
-                <td className="px-3 py-1.5 font-bold text-gray-900">
-                  {b?.tnsNumber ?? b.memberId}
-                </td>
-                <td className="px-3 py-1.5 text-gray-600 italic">
-                  {b.currentMonth}
-                </td>
-                <td className="px-3 py-1.5 text-gray-600 text-[11px]">
-                  {b.currentYear}
-                </td>
-                <td className="px-3 py-1.5 text-right font-mono text-gray-900">
-                  Ksh {b?.prepaid}
-                </td>
-                <td className="px-3 py-1.5 text-right font-mono text-gray-900">
-                  Ksh {b?.due}
-                </td>
-                <td className="px-3 py-1.5">
-                  <div className="flex items-center gap-1.5">
-                    {b.status === "paid" ? (
-                      <>
-                        <CheckCircle className="text-green-500 w-3.5 h-3.5" />
-                        <span className="text-green-700 text-[11px] font-medium italic">
-                          paid
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <PencilLine className="text-blue-500 w-3.5 h-3.5" />
-                        <span className="text-blue-700 text-[11px] font-medium">
-                          open
-                        </span>
-                      </>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {data?.members.map((m: any) => {
+              return (
+                <>
+                  <tr key={m.memberId} className="hover:bg-gray-50">
+                    <td className="px-3 py-1.5 font-bold text-gray-900">
+                      {m.tnsNumber ?? m.memberId}
+                    </td>
+                    <td className="px-3 py-1.5 text-gray-600 italic text-[11px]">
+                      {m.billingDate
+                        ? new Date(m.billingDate).toLocaleDateString()
+                        : "-"}
+                    </td>
+                    <td className="px-3 py-1.5 text-right font-mono text-gray-900">
+                      Ksh {m.balance ?? 0}
+                    </td>
+                    <td className="px-3 py-1.5 text-gray-600 text-[11px] italic">
+                      {m.registrationStatus}
+                    </td>
+                    <td className="px-3 py-1.5">
+                      <div className="flex items-center gap-1.5">
+                        {m.userStatus === "active" ? (
+                          <>
+                            <CheckCircle className="text-green-500 w-3.5 h-3.5" />
+                            <span className="text-green-700 text-[11px] font-medium italic">
+                              active
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <PencilLine className="text-blue-500 w-3.5 h-3.5" />
+                            <span className="text-blue-700 text-[11px] font-medium italic">
+                              inactive
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td colSpan={5} className="px-3 py-1.5">
+                      Anomaly:{" "}
+                      {m.reason ? (
+                        <span className="text-red-500">{m.reason}</span>
+                      ) : (
+                        "NULL"
+                      )}
+                    </td>
+                  </tr>
+                </>
+              );
+            })}
           </tbody>
         </table>
       </div>

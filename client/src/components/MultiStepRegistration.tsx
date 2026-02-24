@@ -617,7 +617,8 @@ const MultiStepRegistration = () => {
       } else {
         toast({
           title: "Registration Failed!",
-          description: `"Failed to submit registration. Please try again.",`,
+          description:
+            err?.message || "Something went wrong please try again later!",
         });
       }
     },

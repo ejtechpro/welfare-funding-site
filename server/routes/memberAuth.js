@@ -84,6 +84,7 @@ router.post("/new", upload.any(), async (req, res) => {
           mpesaPaymentReference: transactionId,
           probationEndDate: probationEndDate,
           maturityStatus: "probation",
+          balance: 0,
         },
       });
 
