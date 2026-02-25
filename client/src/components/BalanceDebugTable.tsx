@@ -1,6 +1,7 @@
 import { Activity, AlertCircle, CheckCircle, PencilLine } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { getBalanceHealthCheckOptions } from "@/queries/memberQueryOptions";
+import React from "react";
 
 export const BalanceDebugTable = () => {
   const { data, isLoading, isError } = useQuery(getBalanceHealthCheckOptions());
@@ -70,10 +71,13 @@ export const BalanceDebugTable = () => {
             </tr>
           </thead>
           <tbody className="divide-y">
-            {data?.members.map((m: any) => {
+            {data?.members.map((m: any, index: number) => {
               return (
-                <>
-                  <tr key={m.id} className="hover:bg-gray-50">
+                <React.Fragment key={`${m.memberId}-${index}`}>
+                  <tr
+                   
+                    className="hover:bg-gray-50"
+                  >
                     <td className="px-3 py-1.5 font-bold text-gray-900">
                       {m.tnsNumber ?? m.memberId}
                     </td>
@@ -118,7 +122,7 @@ export const BalanceDebugTable = () => {
                       )}
                     </td>
                   </tr>
-                </>
+                </React.Fragment>
               );
             })}
           </tbody>

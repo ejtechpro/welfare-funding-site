@@ -14,8 +14,8 @@ model User {
   email            String           @unique
   phone            String?          @unique
   password         String?
-  userRole         UserRole         @default(user)
-  requestedRole    UserRole?
+  userRole         SystemRole       @default(user)
+  requestedRole    SystemRole?
   assignedArea     String?
   approval         ApprovalStatus   @default(pending)
   status           AccountStatus    @default(active)
@@ -73,6 +73,17 @@ model Contribution {
   @@map("contributions")
 }
 
+model UserRole {
+  id         String           @id @default(ulid())
+  roleName   SystemRole
+  roleCode   String
+  roleStatus SystemRoleStatus @default(inactive)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  @@map("user_roles")
+}
+
 model ContributionType {
   id            String                         @id @default(ulid())
   name          String                         @unique
@@ -108,20 +119,6 @@ model Transaction {
 
   @@map("transactions")
 }
-
-// model Balance {
-//   id           String   @id @default(ulid())
-//   member       Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
-//   memberId     String   @unique
-//   currentMonth Int
-//   currentYear  Int
-//   status       String // "open" | "paid"
-//   prepaid      Decimal  @default(0) @db.Decimal(10, 2) // positive: money paid in advance
-//   due          Decimal  @default(0) @db.Decimal(10, 2) // positive: money owed for past months
-//   updatedAt    DateTime @updatedAt
-
-//   @@map("member_balances")
-// }
 
 model Member {
   id                    String             @id @default(ulid())
@@ -384,7 +381,7 @@ model Task {
   @@map("tasks")
 }
 
-enum UserRole {
+enum SystemRole {
   super_admin
   admin
   user
@@ -397,6 +394,11 @@ enum UserRole {
   organizing_secretary
   treasurer
   auditor
+}
+
+enum SystemRoleStatus {
+  active
+  inactive
 }
 
 enum ApprovalStatus {

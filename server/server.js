@@ -125,6 +125,7 @@ app.use("/api/users", require("./routes/userRoutes.js"));
 app.use("/api/transactions", require("./routes/transactionRoutes.js"));
 app.use("/api/contributions", require("./routes/contributionRoutes.js"));
 app.use("/api/expenditures", require("./routes/expenseRoutes.js"));
+app.use("/api/disbursements", require("./routes/disbursementRoutes.js"));
 
 
 

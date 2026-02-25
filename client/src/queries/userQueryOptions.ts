@@ -14,7 +14,7 @@ export const currentUserOptions = () =>
   queryOptions<User>({
     queryKey: ["current-user"],
     queryFn: fetchCurrentUser,
-    // staleTime: 5 * 60 * 1000, // 5 min — prevent frequent refetching
+    staleTime: 5 * 60 * 1000, // 5 min — prevent frequent refetching
     // refetchOnMount: false,
     // refetchOnWindowFocus: false,
     retry: (failureCount, error) => {

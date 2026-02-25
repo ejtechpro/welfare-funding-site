@@ -246,3 +246,50 @@ export type CreateMonthlyExpenseDTO = {
   expenseDate: Date;
   status: MonthlyExpenseStatus;
 };
+
+export type DisbursementStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "cancelled";
+
+export type DisbursementType =
+  | "Bereavement"
+  | "Emergency"
+  | "Medical"
+  | "Education"
+  | "Other";
+
+export interface Disbursement {
+  id: string;
+  amount: number; // Decimal mapped to number
+  reason?: string | null;
+  disbursementType?: DisbursementType | null;
+  status: DisbursementStatus;
+
+  approvedBy?: User | null;
+  approvedById?: string | null;
+
+  bereavementFormUrl?: string | null;
+  disbursementDate: Date;
+
+  createdAt: Date;
+  updatedAt: Date;
+
+  documents: DisbursementDocument[];
+  transactions: [];
+}
+
+export interface DisbursementDocument {
+  id: string;
+  disbursementId: string;
+  disbursement?: Disbursement; // optional relation
+  filename: string;
+  fileType: string;
+  fileSize: number;
+  fileData: string; // could be URL or base64
+  uploadedBy?: string | null;
+  uploadedAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}

@@ -1,0 +1,986 @@
+[
+  {
+    "name": {
+      "common": "Ghana",
+      "official": "Republic of Ghana",
+      "nativeName": {
+        "eng": {
+          "official": "Republic of Ghana",
+          "common": "Ghana"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Réunion",
+      "official": "Réunion Island",
+      "nativeName": {
+        "fra": {
+          "official": "Ile de la Réunion",
+          "common": "La Réunion"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "DR Congo",
+      "official": "Democratic Republic of the Congo",
+      "nativeName": {
+        "fra": {
+          "official": "République démocratique du Congo",
+          "common": "RD Congo"
+        },
+        "kon": {
+          "official": "Repubilika ya Kongo Demokratiki",
+          "common": "Repubilika ya Kongo Demokratiki"
+        },
+        "lin": {
+          "official": "Republiki ya Kongó Demokratiki",
+          "common": "Republiki ya Kongó Demokratiki"
+        },
+        "lua": {
+          "official": "Ditunga dia Kongu wa Mungalaata",
+          "common": "Ditunga dia Kongu wa Mungalaata"
+        },
+        "swa": {
+          "official": "Jamhuri ya Kidemokrasia ya Kongo",
+          "common": "Jamhuri ya Kidemokrasia ya Kongo"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Somalia",
+      "official": "Federal Republic of Somalia",
+      "nativeName": {
+        "ara": {
+          "official": "جمهورية الصومال‎‎",
+          "common": "الصومال‎‎"
+        },
+        "som": {
+          "official": "Jamhuuriyadda Federaalka Soomaaliya",
+          "common": "Soomaaliya"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Benin",
+      "official": "Republic of Benin",
+      "nativeName": {
+        "fra": {
+          "official": "République du Bénin",
+          "common": "Bénin"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Saint Helena, Ascension and Tristan da Cunha",
+      "official": "Saint Helena, Ascension and Tristan da Cunha",
+      "nativeName": {
+        "eng": {
+          "official": "Saint Helena, Ascension and Tristan da Cunha",
+          "common": "Saint Helena, Ascension and Tristan da Cunha"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Burkina Faso",
+      "official": "Burkina Faso",
+      "nativeName": {
+        "fra": {
+          "official": "République du Burkina",
+          "common": "Burkina Faso"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "São Tomé and Príncipe",
+      "official": "Democratic Republic of São Tomé and Príncipe",
+      "nativeName": {
+        "por": {
+          "official": "República Democrática do São Tomé e Príncipe",
+          "common": "São Tomé e Príncipe"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Mozambique",
+      "official": "Republic of Mozambique",
+      "nativeName": {
+        "por": {
+          "official": "República de Moçambique",
+          "common": "Moçambique"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Mauritania",
+      "official": "Islamic Republic of Mauritania",
+      "nativeName": {
+        "ara": {
+          "official": "الجمهورية الإسلامية الموريتانية",
+          "common": "موريتانيا"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Zambia",
+      "official": "Republic of Zambia",
+      "nativeName": {
+        "eng": {
+          "official": "Republic of Zambia",
+          "common": "Zambia"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Botswana",
+      "official": "Republic of Botswana",
+      "nativeName": {
+        "eng": {
+          "official": "Republic of Botswana",
+          "common": "Botswana"
+        },
+        "tsn": {
+          "official": "Lefatshe la Botswana",
+          "common": "Botswana"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Libya",
+      "official": "State of Libya",
+      "nativeName": {
+        "ara": {
+          "official": "الدولة ليبيا",
+          "common": "‏ليبيا"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Zimbabwe",
+      "official": "Republic of Zimbabwe",
+      "nativeName": {
+        "bwg": {
+          "official": "Republic of Zimbabwe",
+          "common": "Zimbabwe"
+        },
+        "eng": {
+          "official": "Republic of Zimbabwe",
+          "common": "Zimbabwe"
+        },
+        "kck": {
+          "official": "Republic of Zimbabwe",
+          "common": "Zimbabwe"
+        },
+        "khi": {
+          "official": "Republic of Zimbabwe",
+          "common": "Zimbabwe"
+        },
+        "ndc": {
+          "official": "Republic of Zimbabwe",
+          "common": "Zimbabwe"
+        },
+        "nde": {
+          "official": "Republic of Zimbabwe",
+          "common": "Zimbabwe"
+        },
+        "nya": {
+          "official": "Republic of Zimbabwe",
+          "common": "Zimbabwe"
+        },
+        "sna": {
+          "official": "Republic of Zimbabwe",
+          "common": "Zimbabwe"
+        },
+        "sot": {
+          "official": "Republic of Zimbabwe",
+          "common": "Zimbabwe"
+        },
+        "toi": {
+          "official": "Republic of Zimbabwe",
+          "common": "Zimbabwe"
+        },
+        "tsn": {
+          "official": "Republic of Zimbabwe",
+          "common": "Zimbabwe"
+        },
+        "tso": {
+          "official": "Republic of Zimbabwe",
+          "common": "Zimbabwe"
+        },
+        "ven": {
+          "official": "Republic of Zimbabwe",
+          "common": "Zimbabwe"
+        },
+        "xho": {
+          "official": "Republic of Zimbabwe",
+          "common": "Zimbabwe"
+        },
+        "zib": {
+          "official": "Republic of Zimbabwe",
+          "common": "Zimbabwe"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Rwanda",
+      "official": "Republic of Rwanda",
+      "nativeName": {
+        "eng": {
+          "official": "Republic of Rwanda",
+          "common": "Rwanda"
+        },
+        "fra": {
+          "official": "République rwandaise",
+          "common": "Rwanda"
+        },
+        "kin": {
+          "official": "Repubulika y'u Rwanda",
+          "common": "Rwanda"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Central African Republic",
+      "official": "Central African Republic",
+      "nativeName": {
+        "fra": {
+          "official": "République centrafricaine",
+          "common": "République centrafricaine"
+        },
+        "sag": {
+          "official": "Ködörösêse tî Bêafrîka",
+          "common": "Bêafrîka"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Algeria",
+      "official": "People's Democratic Republic of Algeria",
+      "nativeName": {
+        "ara": {
+          "official": "الجمهورية الديمقراطية الشعبية الجزائرية",
+          "common": "الجزائر"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Senegal",
+      "official": "Republic of Senegal",
+      "nativeName": {
+        "fra": {
+          "official": "République du Sénégal",
+          "common": "Sénégal"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Namibia",
+      "official": "Republic of Namibia",
+      "nativeName": {
+        "afr": {
+          "official": "Republiek van Namibië",
+          "common": "Namibië"
+        },
+        "deu": {
+          "official": "Republik Namibia",
+          "common": "Namibia"
+        },
+        "eng": {
+          "official": "Republic of Namibia",
+          "common": "Namibia"
+        },
+        "her": {
+          "official": "Republic of Namibia",
+          "common": "Namibia"
+        },
+        "hgm": {
+          "official": "Republic of Namibia",
+          "common": "Namibia"
+        },
+        "kwn": {
+          "official": "Republic of Namibia",
+          "common": "Namibia"
+        },
+        "loz": {
+          "official": "Republic of Namibia",
+          "common": "Namibia"
+        },
+        "ndo": {
+          "official": "Republic of Namibia",
+          "common": "Namibia"
+        },
+        "tsn": {
+          "official": "Lefatshe la Namibia",
+          "common": "Namibia"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Mauritius",
+      "official": "Republic of Mauritius",
+      "nativeName": {
+        "eng": {
+          "official": "Republic of Mauritius",
+          "common": "Mauritius"
+        },
+        "fra": {
+          "official": "République de Maurice",
+          "common": "Maurice"
+        },
+        "mfe": {
+          "official": "Republik Moris",
+          "common": "Moris"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Togo",
+      "official": "Togolese Republic",
+      "nativeName": {
+        "fra": {
+          "official": "République togolaise",
+          "common": "Togo"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Ivory Coast",
+      "official": "Republic of Côte d'Ivoire",
+      "nativeName": {
+        "fra": {
+          "official": "République de Côte d'Ivoire",
+          "common": "Côte d'Ivoire"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Kenya",
+      "official": "Republic of Kenya",
+      "nativeName": {
+        "eng": {
+          "official": "Republic of Kenya",
+          "common": "Kenya"
+        },
+        "swa": {
+          "official": "Republic of Kenya",
+          "common": "Kenya"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Djibouti",
+      "official": "Republic of Djibouti",
+      "nativeName": {
+        "ara": {
+          "official": "جمهورية جيبوتي",
+          "common": "جيبوتي‎"
+        },
+        "fra": {
+          "official": "République de Djibouti",
+          "common": "Djibouti"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Gambia",
+      "official": "Republic of the Gambia",
+      "nativeName": {
+        "eng": {
+          "official": "Republic of the Gambia",
+          "common": "Gambia"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "British Indian Ocean Territory",
+      "official": "British Indian Ocean Territory",
+      "nativeName": {
+        "eng": {
+          "official": "British Indian Ocean Territory",
+          "common": "British Indian Ocean Territory"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Mali",
+      "official": "Republic of Mali",
+      "nativeName": {
+        "fra": {
+          "official": "République du Mali",
+          "common": "Mali"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Egypt",
+      "official": "Arab Republic of Egypt",
+      "nativeName": {
+        "ara": {
+          "official": "جمهورية مصر العربية",
+          "common": "مصر"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Lesotho",
+      "official": "Kingdom of Lesotho",
+      "nativeName": {
+        "eng": {
+          "official": "Kingdom of Lesotho",
+          "common": "Lesotho"
+        },
+        "sot": {
+          "official": "Kingdom of Lesotho",
+          "common": "Lesotho"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "South Sudan",
+      "official": "Republic of South Sudan",
+      "nativeName": {
+        "eng": {
+          "official": "Republic of South Sudan",
+          "common": "South Sudan"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Eritrea",
+      "official": "State of Eritrea",
+      "nativeName": {
+        "ara": {
+          "official": "دولة إرتريا",
+          "common": "إرتريا‎"
+        },
+        "eng": {
+          "official": "State of Eritrea",
+          "common": "Eritrea"
+        },
+        "tir": {
+          "official": "ሃገረ ኤርትራ",
+          "common": "ኤርትራ"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Nigeria",
+      "official": "Federal Republic of Nigeria",
+      "nativeName": {
+        "eng": {
+          "official": "Federal Republic of Nigeria",
+          "common": "Nigeria"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Madagascar",
+      "official": "Republic of Madagascar",
+      "nativeName": {
+        "fra": {
+          "official": "République de Madagascar",
+          "common": "Madagascar"
+        },
+        "mlg": {
+          "official": "Repoblikan'i Madagasikara",
+          "common": "Madagasikara"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Malawi",
+      "official": "Republic of Malawi",
+      "nativeName": {
+        "eng": {
+          "official": "Republic of Malawi",
+          "common": "Malawi"
+        },
+        "nya": {
+          "official": "Chalo cha Malawi, Dziko la Malaŵi",
+          "common": "Malaŵi"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Gabon",
+      "official": "Gabonese Republic",
+      "nativeName": {
+        "fra": {
+          "official": "République gabonaise",
+          "common": "Gabon"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Tunisia",
+      "official": "Tunisian Republic",
+      "nativeName": {
+        "ara": {
+          "official": "الجمهورية التونسية",
+          "common": "تونس"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "South Africa",
+      "official": "Republic of South Africa",
+      "nativeName": {
+        "afr": {
+          "official": "Republiek van Suid-Afrika",
+          "common": "South Africa"
+        },
+        "eng": {
+          "official": "Republic of South Africa",
+          "common": "South Africa"
+        },
+        "nbl": {
+          "official": "IRiphabliki yeSewula Afrika",
+          "common": "Sewula Afrika"
+        },
+        "nso": {
+          "official": "Rephaboliki ya Afrika-Borwa ",
+          "common": "Afrika-Borwa"
+        },
+        "sot": {
+          "official": "Rephaboliki ya Afrika Borwa",
+          "common": "Afrika Borwa"
+        },
+        "ssw": {
+          "official": "IRiphabhulikhi yeNingizimu Afrika",
+          "common": "Ningizimu Afrika"
+        },
+        "tsn": {
+          "official": "Rephaboliki ya Aforika Borwa",
+          "common": "Aforika Borwa"
+        },
+        "tso": {
+          "official": "Riphabliki ra Afrika Dzonga",
+          "common": "Afrika Dzonga"
+        },
+        "ven": {
+          "official": "Riphabuḽiki ya Afurika Tshipembe",
+          "common": "Afurika Tshipembe"
+        },
+        "xho": {
+          "official": "IRiphabliki yaseMzantsi Afrika",
+          "common": "Mzantsi Afrika"
+        },
+        "zul": {
+          "official": "IRiphabliki yaseNingizimu Afrika",
+          "common": "Ningizimu Afrika"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Comoros",
+      "official": "Union of the Comoros",
+      "nativeName": {
+        "ara": {
+          "official": "الاتحاد القمري",
+          "common": "القمر‎"
+        },
+        "fra": {
+          "official": "Union des Comores",
+          "common": "Comores"
+        },
+        "zdj": {
+          "official": "Udzima wa Komori",
+          "common": "Komori"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Ethiopia",
+      "official": "Federal Democratic Republic of Ethiopia",
+      "nativeName": {
+        "amh": {
+          "official": "የኢትዮጵያ ፌዴራላዊ ዲሞክራሲያዊ ሪፐብሊክ",
+          "common": "ኢትዮጵያ"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Equatorial Guinea",
+      "official": "Republic of Equatorial Guinea",
+      "nativeName": {
+        "fra": {
+          "official": "République de la Guinée Équatoriale",
+          "common": "Guinée équatoriale"
+        },
+        "por": {
+          "official": "República da Guiné Equatorial",
+          "common": "Guiné Equatorial"
+        },
+        "spa": {
+          "official": "República de Guinea Ecuatorial",
+          "common": "Guinea Ecuatorial"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Guinea-Bissau",
+      "official": "Republic of Guinea-Bissau",
+      "nativeName": {
+        "por": {
+          "official": "República da Guiné-Bissau",
+          "common": "Guiné-Bissau"
+        },
+        "pov": {
+          "official": "República da Guiné-Bissau",
+          "common": "Guiné-Bissau"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Niger",
+      "official": "Republic of Niger",
+      "nativeName": {
+        "fra": {
+          "official": "République du Niger",
+          "common": "Niger"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Sierra Leone",
+      "official": "Republic of Sierra Leone",
+      "nativeName": {
+        "eng": {
+          "official": "Republic of Sierra Leone",
+          "common": "Sierra Leone"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Uganda",
+      "official": "Republic of Uganda",
+      "nativeName": {
+        "eng": {
+          "official": "Republic of Uganda",
+          "common": "Uganda"
+        },
+        "swa": {
+          "official": "Republic of Uganda",
+          "common": "Uganda"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Eswatini",
+      "official": "Kingdom of Eswatini",
+      "nativeName": {
+        "eng": {
+          "official": "Kingdom of Eswatini",
+          "common": "Eswatini"
+        },
+        "ssw": {
+          "official": "Umbuso weSwatini",
+          "common": "eSwatini"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Republic of the Congo",
+      "official": "Republic of the Congo",
+      "nativeName": {
+        "fra": {
+          "official": "République du Congo",
+          "common": "République du Congo"
+        },
+        "kon": {
+          "official": "Repubilika ya Kongo",
+          "common": "Repubilika ya Kongo"
+        },
+        "lin": {
+          "official": "Republíki ya Kongó",
+          "common": "Republíki ya Kongó"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Tanzania",
+      "official": "United Republic of Tanzania",
+      "nativeName": {
+        "eng": {
+          "official": "United Republic of Tanzania",
+          "common": "Tanzania"
+        },
+        "swa": {
+          "official": "Jamhuri ya Muungano wa Tanzania",
+          "common": "Tanzania"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Cameroon",
+      "official": "Republic of Cameroon",
+      "nativeName": {
+        "eng": {
+          "official": "Republic of Cameroon",
+          "common": "Cameroon"
+        },
+        "fra": {
+          "official": "République du Cameroun",
+          "common": "Cameroun"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Liberia",
+      "official": "Republic of Liberia",
+      "nativeName": {
+        "eng": {
+          "official": "Republic of Liberia",
+          "common": "Liberia"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Mayotte",
+      "official": "Department of Mayotte",
+      "nativeName": {
+        "fra": {
+          "official": "Département de Mayotte",
+          "common": "Mayotte"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Seychelles",
+      "official": "Republic of Seychelles",
+      "nativeName": {
+        "crs": {
+          "official": "Repiblik Sesel",
+          "common": "Sesel"
+        },
+        "eng": {
+          "official": "Republic of Seychelles",
+          "common": "Seychelles"
+        },
+        "fra": {
+          "official": "République des Seychelles",
+          "common": "Seychelles"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Guinea",
+      "official": "Republic of Guinea",
+      "nativeName": {
+        "fra": {
+          "official": "République de Guinée",
+          "common": "Guinée"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Chad",
+      "official": "Republic of Chad",
+      "nativeName": {
+        "ara": {
+          "official": "جمهورية تشاد",
+          "common": "تشاد‎"
+        },
+        "fra": {
+          "official": "République du Tchad",
+          "common": "Tchad"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Western Sahara",
+      "official": "Sahrawi Arab Democratic Republic",
+      "nativeName": {
+        "ber": {
+          "official": "Sahrawi Arab Democratic Republic",
+          "common": "Western Sahara"
+        },
+        "mey": {
+          "official": "الجمهورية العربية الصحراوية الديمقراطية",
+          "common": "الصحراء الغربية"
+        },
+        "spa": {
+          "official": "República Árabe Saharaui Democrática",
+          "common": "Sahara Occidental"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Morocco",
+      "official": "Kingdom of Morocco",
+      "nativeName": {
+        "ara": {
+          "official": "المملكة المغربية",
+          "common": "المغرب"
+        },
+        "ber": {
+          "official": "ⵜⴰⴳⵍⴷⵉⵜ ⵏ ⵍⵎⵖⵔⵉⴱ",
+          "common": "ⵍⵎⴰⵖⵔⵉⴱ"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Sudan",
+      "official": "Republic of the Sudan",
+      "nativeName": {
+        "ara": {
+          "official": "جمهورية السودان",
+          "common": "السودان"
+        },
+        "eng": {
+          "official": "Republic of the Sudan",
+          "common": "Sudan"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Cape Verde",
+      "official": "Republic of Cabo Verde",
+      "nativeName": {
+        "por": {
+          "official": "República de Cabo Verde",
+          "common": "Cabo Verde"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Burundi",
+      "official": "Republic of Burundi",
+      "nativeName": {
+        "fra": {
+          "official": "République du Burundi",
+          "common": "Burundi"
+        },
+        "run": {
+          "official": "Republika y'Uburundi ",
+          "common": "Uburundi"
+        }
+      }
+    }
+  },
+  {
+    "name": {
+      "common": "Angola",
+      "official": "Republic of Angola",
+      "nativeName": {
+        "por": {
+          "official": "República de Angola",
+          "common": "Angola"
+        }
+      }
+    }
+  }
+]
