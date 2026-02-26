@@ -1,56 +1,50 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { fetchAllMembers } from "@/api/member";
+import type { Member } from "@/types";
 
-interface Member {
-  id: string;
-  first_name: string;
-  last_name: string;
-  tns_number?: string;
-}
 
 export const DisbursementForm = ({ onSuccess }: { onSuccess?: () => void }) => {
-  const [members, setMembers] = useState<Member[]>([]);
+  // const [members, setMembers] = useState<Member[]>([]);
   const [selectedMember, setSelectedMember] = useState("");
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
-  const [disbursementDate, setDisbursementDate] = useState(new Date().toISOString().split('T')[0]);
+  const [disbursementDate, setDisbursementDate] = useState(
+    new Date().toISOString().split("T")[0],
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMembers, setLoadingMembers] = useState(false);
 
-  useEffect(() => {
-    fetchMembers();
-  }, []);
-
-  const fetchMembers = async () => {
-    setLoadingMembers(true);
-    try {
-      const { data, error } = await supabase
-        .from("membership_registrations")
-        .select("id, first_name, last_name, tns_number")
-        .eq("registration_status", "approved")
-        .order("first_name", { ascending: true });
-
-      if (error) throw error;
-      setMembers(data || []);
-    } catch (error) {
-      console.error("Error fetching members:", error);
-      toast.error("Failed to load members");
-    } finally {
-      setLoadingMembers(false);
-    }
-  };
+  const members = useQuery<Member[]>({
+    queryFn: () => fetchAllMembers(),
+    queryKey: ["members"],
+    staleTime: 60_000,
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!selectedMember || !amount || !reason) {
       toast.error("Please fill in all required fields");
       return;
@@ -72,7 +66,7 @@ export const DisbursementForm = ({ onSuccess }: { onSuccess?: () => void }) => {
           amount: numAmount,
           disbursement_date: disbursementDate,
           reason: reason,
-          status: "approved"
+          status: "approved",
         });
 
       if (disbursementError) throw disbursementError;
@@ -90,19 +84,19 @@ export const DisbursementForm = ({ onSuccess }: { onSuccess?: () => void }) => {
           .update({
             current_balance: currentBalance.current_balance - numAmount,
             total_disbursements: currentBalance.total_disbursements + numAmount,
-            last_updated: new Date().toISOString()
+            last_updated: new Date().toISOString(),
           })
           .eq("member_id", selectedMember);
       }
 
       toast.success("Disbursement recorded successfully!");
-      
+
       // Reset form
       setSelectedMember("");
       setAmount("");
       setReason("");
-      setDisbursementDate(new Date().toISOString().split('T')[0]);
-      
+      setDisbursementDate(new Date().toISOString().split("T")[0]);
+
       if (onSuccess) onSuccess();
     } catch (error) {
       console.error("Error recording disbursement:", error);
@@ -121,17 +115,22 @@ export const DisbursementForm = ({ onSuccess }: { onSuccess?: () => void }) => {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {/* <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="member">Select Member *</Label>
             <Select value={selectedMember} onValueChange={setSelectedMember}>
               <SelectTrigger>
-                <SelectValue placeholder={loadingMembers ? "Loading members..." : "Select a member"} />
+                <SelectValue
+                  placeholder={
+                    loadingMembers ? "Loading members..." : "Select a member"
+                  }
+                />
               </SelectTrigger>
               <SelectContent>
-                {members.map((member) => (
+                {members.data?.map((member) => (
                   <SelectItem key={member.id} value={member.id}>
-                    {member.first_name} {member.last_name} {member.tns_number ? `(${member.tns_number})` : ''}
+                    {member.user.firstName} {member.user.lastName}{" "}
+                    {member.tnsNumber ? `(${member.tnsNumber})` : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -184,7 +183,7 @@ export const DisbursementForm = ({ onSuccess }: { onSuccess?: () => void }) => {
               "Record Disbursement"
             )}
           </Button>
-        </form>
+        </form> */}
       </CardContent>
     </Card>
   );

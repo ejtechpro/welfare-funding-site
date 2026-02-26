@@ -12,12 +12,9 @@ const Header = () => {
   const navigation = [
     { name: 'About Us', href: '#about' },
     { name: 'Requirements', href: '#requirements' },
-    { name: 'Rights & Responsibilities', href: '#rights' },
-    { name: 'Register as a Member', href: '#register' },
-    // { name: 'Register as an Admin', href: '/adminregistration', route: true },
-    // { name: 'Registered Members', href: '/viewmems', route: true },
+    { name: 'Rights & Responsibilities', href: '/#rights' },
+    { name: 'Member Portal', href: '/member-login' },
     { name: user ? 'Dashboard' : 'Staff Portal', href: user ? '/dashboard' : '/auth', route: true },
-    // { name: 'Portal Login', href: '/portal-login', route: true }
   ];
 
   const handleNavigation = (item: { href: string; route?: boolean }) => {

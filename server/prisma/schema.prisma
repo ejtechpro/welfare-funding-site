@@ -97,6 +97,16 @@ model ContributionType {
   @@map("contribution_types")
 }
 
+model DisbursementCategory {
+  id        String   @id @default(ulid())
+  name      String
+  status    String   @default("inactive")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("disbursement_types")
+}
+
 model Transaction {
   id                String             @id @default(ulid())
   transactionMethod TransactionMenthod // cash | mpesa
